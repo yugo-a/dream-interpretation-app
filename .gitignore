@@ -1,0 +1,51 @@
+# temp files from editors
+*~
+*.bak
+.DS_Store
+.buildpath
+.project
+.settings
+*.tmproj
+build
+.idea
+nbproject/
+
+# hidden files created by Windows
+Thumbs.db
+desktop.ini
+
+# the composer package lock file and install directory
+/composer.lock
+/fuel/vendor
+
+# any of the fuel packages installed by default
+/fuel/core/
+/fuel/packages/auth/
+/fuel/packages/email/
+/fuel/packages/oil/
+/fuel/packages/orm/
+/fuel/packages/parser/
+/public/docs/
+
+# dynamically generated files
+/fuel/app/logs/*/*/*
+/fuel/app/cache/*/*
+/fuel/app/config/crypt.php
+fuel/.env
+
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# Log files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependency directories
+jspm_packages/
+

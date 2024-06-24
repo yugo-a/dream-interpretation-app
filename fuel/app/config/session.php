@@ -1,0 +1,25 @@
+<?php
+return array(
+    'driver' => 'file',
+    'cookie_name' => 'fuelfid',
+    'database' => null,
+    'table' => null,
+    'gc_probability' => 5,
+    'expiration_time' => 7200,
+    'rotation_time' => 300,
+    'path' => '/Applications/MAMP/tmp/php',
+    'fallback' => 'cookie',
+    'security' => array(
+        'allow_raw_cookie' => true,
+        'split_cookies' => false,
+    ),
+    'match_ip' => false,
+    'match_ua' => true,
+    'cookie_domain' => '',
+    'cookie_path' => '/',
+    'cookie_http_only' => null,
+    'encrypt_cookie' => true,
+    'use_http_header' => false,
+    'http_header' => 'Session-Id',
+    'native_emulation' => false,
+);
