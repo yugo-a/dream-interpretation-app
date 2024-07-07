@@ -1,26 +1,66 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const axios = require('axios');
 const dotenv = require('dotenv');
+const mysql = require('mysql');
+const bcrypt = require('bcrypt');
+const session = require('express-session');
 
-dotenv.config();  // .envファイルの内容を読み込む
+dotenv.config();
 
 const app = express();
 
-// CORSの設定を追加
+// MySQLデータベース接続の設定
+let db;
+
+function handleDisconnect() {
+  db = mysql.createConnection({
+    host: process.env.DB_HOST === 'localhost' ? '127.0.0.1' : process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT || 3306
+  });
+
+  db.connect((err) => {
+    if (err) {
+      console.error('Database connection failed:', err.stack);
+      setTimeout(handleDisconnect, 2000);
+    } else {
+      console.log('Connected to database.');
+    }
+  });
+
+  db.on('error', (err) => {
+    console.error('Database error:', err);
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+      handleDisconnect();
+    } else {
+      throw err;
+    }
+  });
+}
+
+handleDisconnect();
+
+app.use(session({
+  secret: 'your_secret_key',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }
+}));
+
 const corsOptions = {
-  origin: 'http://localhost:8080', // フロントエンドのURL
+  origin: 'http://localhost:8080',
   credentials: true,
-  optionsSuccessStatus: 200 // 一部のブラウザでの問題を回避するための設定
+  optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // すべてのルートに対してプレフライトリクエストを許可
+app.options('*', cors(corsOptions));
 
 app.use(bodyParser.json());
 
-// ログミドルウェアの追加
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   console.log('Request Headers:', req.headers);
@@ -28,68 +68,102 @@ app.use((req, res, next) => {
   next();
 });
 
-// ルートパスへのGETリクエストを処理するルート
 app.get('/', (req, res) => {
   console.log('GET request to /');
   res.send('API is running');
 });
 
-const openaiApiKey = process.env.OPENAI_API_KEY; // 環境変数からAPIキーを取得
+app.post('/api/register', (req, res) => {
+  const { username, password } = req.body;
 
-app.post('/api/interpret-dream', async (req, res) => {
-    const dreamDescription = req.body.dream;
+  console.log('Received registration request:', { username, password });
 
-    try {
-        console.log('Received request for dream interpretation:', dreamDescription); // デバッグ用
-        console.log('Using OpenAI API Key:', openaiApiKey); // APIキーの確認用
-
-        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-            model: "gpt-3.5-turbo", // 使用するモデル
-            messages: [
-                { role: "system", content: "あなたはプロの夢占い師です。ユーザーの夢について日本語で解釈を提供してください。" },
-                { role: "user", content: dreamDescription }
-            ]
-        }, {
-            headers: {
-                'Authorization': `Bearer ${openaiApiKey}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        const interpretation = response.data.choices[0].message.content;
-        console.log('API Response:', JSON.stringify(response.data, null, 2)); // デバッグ用
-        res.json({ success: true, interpretation: interpretation });
-    } catch (error) {
-        console.error('Error calling OpenAI API:', error.message, error.response ? error.response.data : 'No response data'); // エラーログ
-        res.status(500).json({ success: false, error: 'Failed to interpret the dream.' });
+  bcrypt.hash(password, 10, (err, hash) => {
+    if (err) {
+      console.error('Error hashing password:', err);
+      res.status(500).json({ status: 'error', message: 'Error hashing password' });
+      return;
     }
+
+    const query = 'INSERT INTO users (username, password) VALUES (?, ?)';
+    db.query(query, [username, hash], (err, results) => {
+      if (err) {
+        console.error('Error inserting user:', err);
+        res.status(500).json({ status: 'error', message: 'Error inserting user' });
+        return;
+      }
+
+      console.log('User inserted:', results);
+      res.json({ status: 'success', message: 'User registered successfully' });
+    });
+  });
 });
 
 app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
+  const { username, password } = req.body;
 
-    console.log('Received login request:', { username, password }); // デバッグ用
+  console.log('Received login request:', { username, password });
 
-    // 認証ロジックを追加
-    // 例:
-    let response;
-    if (username === 'testuser' && password === 'password123') {
-        response = { status: 'success' };
-    } else {
-        response = { status: 'error', message: 'Invalid credentials' };
+  db.query('SELECT * FROM users WHERE username = ?', [username], (err, results) => {
+    if (err) {
+      console.error('Database query failed:', err);
+      res.status(500).json({ status: 'error', message: 'Database query failed' });
+      return;
     }
 
-    console.log('Login response:', response); // レスポンスのログ
-    res.json(response);
+    console.log('Database query results:', results);
+
+    if (results.length > 0) {
+      const user = results[0];
+
+      bcrypt.compare(password, user.password, (err, isMatch) => {
+        if (err) {
+          console.error('Error comparing passwords:', err);
+          res.status(500).json({ status: 'error', message: 'Error comparing passwords' });
+          return;
+        }
+
+        console.log('Password match status:', isMatch);
+
+        if (isMatch) {
+          req.session.user = user;
+          res.json({ status: 'success' });
+        } else {
+          res.json({ status: 'error', message: 'Invalid credentials' });
+        }
+      });
+    } else {
+      res.json({ status: 'error', message: 'Invalid credentials' });
+    }
+  });
 });
 
-// Catch-allルートの追加（404エラー対策）
+app.get('/api/checksession', (req, res) => {
+  if (req.session.user) {
+    res.json({ loggedIn: true, user: req.session.user });
+  } else {
+    res.json({ loggedIn: false });
+  }
+});
+
+app.post('/api/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Error destroying session:', err);
+      res.status(500).json({ status: 'error', message: 'Failed to logout' });
+    } else {
+      res.clearCookie('connect.sid');
+      res.json({ status: 'success', message: 'Logged out successfully' });
+    }
+  });
+});
+
 app.use((req, res, next) => {
-    console.log(`404 Not Found: ${req.method} ${req.url}`);
-    res.status(404).send("Sorry can't find that!");
+  console.log(`404 Not Found: ${req.method} ${req.url}`);
+  res.status(404).send("Sorry can't find that!");
 });
 
 const PORT = 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
