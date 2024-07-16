@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 const mysql = require('mysql');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
+const axios = require('axios');
 
 dotenv.config();
 
@@ -152,10 +153,35 @@ app.post('/api/logout', (req, res) => {
       console.error('Error destroying session:', err);
       res.status(500).json({ status: 'error', message: 'Failed to logout' });
     } else {
-      res.clearCookie('connect.sid');
+      res.clearCookie('connect.sid', { path: '/' });
       res.json({ status: 'success', message: 'Logged out successfully' });
     }
   });
+});
+
+app.post('/api/interpret-dream', async (req, res) => {
+  const { dream } = req.body;
+
+  try {
+    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: "あなたはプロの夢占い師です。ユーザーの夢について日本語で解釈を提供してください。" },
+        { role: "user", content: dream }
+      ]
+    }, {
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const interpretation = response.data.choices[0].message.content;
+    res.json({ success: true, interpretation });
+  } catch (error) {
+    console.error('Error calling OpenAI API:', error.message, error.response ? error.response.data : 'No response data');
+    res.status(500).json({ success: false, message: 'Failed to interpret the dream.' });
+  }
 });
 
 app.use((req, res, next) => {
