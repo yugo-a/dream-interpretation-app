@@ -184,6 +184,86 @@ app.post('/api/interpret-dream', async (req, res) => {
   }
 });
 
+app.post('/api/updateUser', (req, res) => {
+    const { age, gender, stress, dreamTheme } = req.body;
+  
+    if (!req.session.user) {
+      return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+    }
+  
+    const userId = req.session.user.id;
+  
+    const query = 'UPDATE users SET age = ?, gender = ?, stress = ?, dream_theme = ? WHERE id = ?';
+    db.query(query, [age, gender, stress, dreamTheme, userId], (err, results) => {
+      if (err) {
+        console.error('Error updating user:', err);
+        return res.status(500).json({ status: 'error', message: 'Error updating user' });
+      }
+  
+      console.log('User updated:', results);
+      res.json({ status: 'success', message: 'User updated successfully' });
+    });
+  });
+  
+  app.get('/api/getUserData', (req, res) => {
+    if (!req.session.user) {
+      return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+    }
+  
+    const userId = req.session.user.id;
+    const query = 'SELECT username, age, gender, stress, dream_theme FROM users WHERE id = ?';
+  
+    db.query(query, [userId], (err, results) => {
+      if (err) {
+        console.error('Error fetching user data:', err);
+        return res.status(500).json({ status: 'error', message: 'Error fetching user data' });
+      }
+  
+      if (results.length > 0) {
+        const user = results[0];
+        res.json({ status: 'success', user });
+      } else {
+        res.status(404).json({ status: 'error', message: 'User not found' });
+      }
+    });
+  });
+
+  app.get('/api/getUserData', (req, res) => {
+    if (!req.session.user) {
+      console.log('Unauthorized request: no user session');
+      return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+    }
+  
+    const userId = req.session.user.id;
+    console.log('Fetching data for user ID:', userId);
+  
+    const query = 'SELECT username, age, gender, stress, dream_theme FROM users WHERE id = ?';
+    db.query(query, [userId], (err, results) => {
+      if (err) {
+        console.error('Error fetching user data:', err);
+        return res.status(500).json({ status: 'error', message: 'Error fetching user data' });
+      }
+  
+      if (results.length > 0) {
+        const user = results[0];
+        console.log('User data fetched:', user);
+        res.json({
+          status: 'success',
+          user: {
+            name: user.username,
+            age: user.age,
+            gender: user.gender,
+            stress: user.stress,
+            dreamTheme: user.dream_theme
+          }
+        });
+      } else {
+        console.log('User not found');
+        res.status(404).json({ status: 'error', message: 'User not found' });
+      }
+    });
+  });
+      
 app.use((req, res, next) => {
   console.log(`404 Not Found: ${req.method} ${req.url}`);
   res.status(404).send("Sorry can't find that!");
