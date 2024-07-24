@@ -207,62 +207,39 @@ app.post('/api/updateUser', (req, res) => {
   
   app.get('/api/getUserData', (req, res) => {
     if (!req.session.user) {
-      return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+        console.log('Unauthorized request: no user session');
+        return res.status(401).json({ status: 'error', message: 'Unauthorized' });
     }
-  
-    const userId = req.session.user.id;
-    const query = 'SELECT username, age, gender, stress, dream_theme FROM users WHERE id = ?';
-  
-    db.query(query, [userId], (err, results) => {
-      if (err) {
-        console.error('Error fetching user data:', err);
-        return res.status(500).json({ status: 'error', message: 'Error fetching user data' });
-      }
-  
-      if (results.length > 0) {
-        const user = results[0];
-        res.json({ status: 'success', user });
-      } else {
-        res.status(404).json({ status: 'error', message: 'User not found' });
-      }
-    });
-  });
 
-  app.get('/api/getUserData', (req, res) => {
-    if (!req.session.user) {
-      console.log('Unauthorized request: no user session');
-      return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-    }
-  
     const userId = req.session.user.id;
     console.log('Fetching data for user ID:', userId);
-  
+
     const query = 'SELECT username, age, gender, stress, dream_theme FROM users WHERE id = ?';
     db.query(query, [userId], (err, results) => {
-      if (err) {
-        console.error('Error fetching user data:', err);
-        return res.status(500).json({ status: 'error', message: 'Error fetching user data' });
-      }
-  
-      if (results.length > 0) {
-        const user = results[0];
-        console.log('User data fetched:', user);
-        res.json({
-          status: 'success',
-          user: {
-            name: user.username,
-            age: user.age,
-            gender: user.gender,
-            stress: user.stress,
-            dreamTheme: user.dream_theme
-          }
-        });
-      } else {
-        console.log('User not found');
-        res.status(404).json({ status: 'error', message: 'User not found' });
-      }
+        if (err) {
+            console.error('Error fetching user data:', err);
+            return res.status(500).json({ status: 'error', message: 'Error fetching user data' });
+        }
+
+        if (results.length > 0) {
+            const user = results[0];
+            console.log('User data fetched:', user);
+            res.json({
+                status: 'success',
+                user: {
+                    name: user.username,
+                    age: user.age,
+                    gender: user.gender,
+                    stress: user.stress,
+                    dreamTheme: user.dream_theme
+                }
+            });
+        } else {
+            console.log('User not found');
+            res.status(404).json({ status: 'error', message: 'User not found' });
+        }
     });
-  });
+});
       
 app.use((req, res, next) => {
   console.log(`404 Not Found: ${req.method} ${req.url}`);
