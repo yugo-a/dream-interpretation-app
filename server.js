@@ -185,10 +185,14 @@ app.post('/api/interpret-dream', async (req, res) => {
 });
 
 app.post('/api/updateUser', (req, res) => {
-    const { age, gender, stress, dreamTheme } = req.body;
+    const { username, age, gender, stress, dreamTheme } = req.body;
   
     if (!req.session.user) {
       return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+    }
+
+    if (!username.trim()) {
+      return res.status(400).json({ status: 'error', message: 'ユーザー名を入力してください。' });
     }
   
     const userId = req.session.user.id;
