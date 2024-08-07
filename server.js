@@ -75,9 +75,9 @@ app.get('/', (req, res) => {
 });
 
 app.post('/api/register', (req, res) => {
-  const { username, password } = req.body;
+  const { username, email, password } = req.body;
 
-  console.log('Received registration request:', { username, password });
+  console.log('Received registration request:', { username, email, password });
 
   bcrypt.hash(password, 10, (err, hash) => {
     if (err) {
@@ -86,8 +86,8 @@ app.post('/api/register', (req, res) => {
       return;
     }
 
-    const query = 'INSERT INTO users (username, password) VALUES (?, ?)';
-    db.query(query, [username, hash], (err, results) => {
+    const query = 'INSERT INTO users (username, email, password) VALUES (?, ?, ?)';
+    db.query(query, [username, email, hash], (err, results) => {
       if (err) {
         console.error('Error inserting user:', err);
         res.status(500).json({ status: 'error', message: 'Error inserting user' });
@@ -95,6 +95,7 @@ app.post('/api/register', (req, res) => {
       }
 
       console.log('User inserted:', results);
+      req.session.user = { id: results.insertId, username, email };
       res.json({ status: 'success', message: 'User registered successfully' });
     });
   });
@@ -105,7 +106,7 @@ app.post('/api/login', (req, res) => {
 
   console.log('Received login request:', { username, password });
 
-  db.query('SELECT * FROM users WHERE username = ?', [username], (err, results) => {
+  db.query('SELECT * FROM users WHERE username = ? AND deleted_flag = 0', [username], (err, results) => {
     if (err) {
       console.error('Database query failed:', err);
       res.status(500).json({ status: 'error', message: 'Database query failed' });
@@ -116,11 +117,6 @@ app.post('/api/login', (req, res) => {
 
     if (results.length > 0) {
       const user = results[0];
-
-      if (user.deleted_flag) {
-        res.json({ status: 'error', message: 'このアカウントは退会済みです。' });
-        return;
-      }
 
       bcrypt.compare(password, user.password, (err, isMatch) => {
         if (err) {
@@ -190,7 +186,7 @@ app.post('/api/interpret-dream', async (req, res) => {
 });
 
 app.post('/api/updateUser', (req, res) => {
-  const { username, age, gender, stress, dreamTheme } = req.body;
+  const { username, email, age, gender, stress, dreamTheme } = req.body;
 
   if (!req.session.user) {
     return res.status(401).json({ status: 'error', message: 'Unauthorized' });
@@ -200,10 +196,14 @@ app.post('/api/updateUser', (req, res) => {
     return res.status(400).json({ status: 'error', message: 'ユーザー名を入力してください。' });
   }
 
+  if (!email.trim()) {
+    return res.status(400).json({ status: 'error', message: 'メールアドレスを入力してください。' });
+  }
+
   const userId = req.session.user.id;
 
-  const query = 'UPDATE users SET age = ?, gender = ?, stress = ?, dream_theme = ? WHERE id = ?';
-  db.query(query, [age || null, gender || null, stress || null, dreamTheme || null, userId], (err, results) => {
+  const query = 'UPDATE users SET username = ?, email = ?, age = ?, gender = ?, stress = ?, dream_theme = ? WHERE id = ?';
+  db.query(query, [username, email, age || null, gender || null, stress || null, dreamTheme || null, userId], (err, results) => {
     if (err) {
       console.error('Error updating user:', err);
       return res.status(500).json({ status: 'error', message: 'Error updating user' });
@@ -223,7 +223,7 @@ app.get('/api/getUserData', (req, res) => {
   const userId = req.session.user.id;
   console.log('Fetching data for user ID:', userId);
 
-  const query = 'SELECT username, age, gender, stress, dream_theme FROM users WHERE id = ?';
+  const query = 'SELECT username, email, age, gender, stress, dream_theme FROM users WHERE id = ?';
   db.query(query, [userId], (err, results) => {
     if (err) {
       console.error('Error fetching user data:', err);
@@ -237,6 +237,7 @@ app.get('/api/getUserData', (req, res) => {
         status: 'success',
         user: {
           name: user.username,
+          email: user.email,
           age: user.age,
           gender: user.gender,
           stress: user.stress,
@@ -268,10 +269,6 @@ app.post('/api/changePassword', (req, res) => {
     if (results.length > 0) {
       const user = results[0];
 
-      if (currentPassword === newPassword) {
-        return res.status(400).json({ status: 'error', message: '現在のパスワードと新しいパスワードが同じです。' });
-      }
-
       bcrypt.compare(currentPassword, user.password, (err, isMatch) => {
         if (err) {
           console.error('Error comparing passwords:', err);
@@ -279,6 +276,10 @@ app.post('/api/changePassword', (req, res) => {
         }
 
         if (isMatch) {
+          if (currentPassword === newPassword) {
+            return res.status(400).json({ status: 'error', message: '新しいパスワードが現在のパスワードと同じです。' });
+          }
+
           bcrypt.hash(newPassword, 10, (err, hash) => {
             if (err) {
               console.error('Error hashing new password:', err);
@@ -300,26 +301,25 @@ app.post('/api/changePassword', (req, res) => {
         }
       });
     } else {
-      res.status(404).json({ status: 'error', message: 'ユーザーが見つかりませんでした。' });
+      res.status(404).json({ status: 'error', message: 'User not found' });
     }
   });
 });
 
-app.post('/api/deleteUser', (req, res) => {
+app.post('/api/deleteAccount', (req, res) => {
   if (!req.session.user) {
     return res.status(401).json({ status: 'error', message: 'Unauthorized' });
   }
 
   const userId = req.session.user.id;
 
-  const query = 'UPDATE users SET deleted_flag = TRUE WHERE id = ?';
+  const query = 'UPDATE users SET deleted_flag = 1 WHERE id = ?';
   db.query(query, [userId], (err, results) => {
     if (err) {
       console.error('Error deleting user:', err);
       return res.status(500).json({ status: 'error', message: 'Error deleting user' });
     }
 
-    console.log('User deleted:', results);
     req.session.destroy((err) => {
       if (err) {
         console.error('Error destroying session:', err);
@@ -327,6 +327,7 @@ app.post('/api/deleteUser', (req, res) => {
       }
 
       res.clearCookie('connect.sid', { path: '/' });
+      console.log('User account deleted and session destroyed:', results);
       res.json({ status: 'success', message: 'Account deleted successfully' });
     });
   });
