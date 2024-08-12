@@ -6,6 +6,8 @@ const mysql = require('mysql');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const axios = require('axios');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 dotenv.config();
 
@@ -95,7 +97,6 @@ app.post('/api/register', (req, res) => {
       }
 
       console.log('User inserted:', results);
-      req.session.user = { id: results.insertId, username, email };
       res.json({ status: 'success', message: 'User registered successfully' });
     });
   });
@@ -113,8 +114,6 @@ app.post('/api/login', (req, res) => {
       return;
     }
 
-    console.log('Database query results:', results);
-
     if (results.length > 0) {
       const user = results[0];
 
@@ -124,8 +123,6 @@ app.post('/api/login', (req, res) => {
           res.status(500).json({ status: 'error', message: 'Error comparing passwords' });
           return;
         }
-
-        console.log('Password match status:', isMatch);
 
         if (isMatch) {
           req.session.user = user;
@@ -209,19 +206,16 @@ app.post('/api/updateUser', (req, res) => {
       return res.status(500).json({ status: 'error', message: 'Error updating user' });
     }
 
-    console.log('User updated:', results);
     res.json({ status: 'success', message: 'User updated successfully' });
   });
 });
 
 app.get('/api/getUserData', (req, res) => {
   if (!req.session.user) {
-    console.log('Unauthorized request: no user session');
     return res.status(401).json({ status: 'error', message: 'Unauthorized' });
   }
 
   const userId = req.session.user.id;
-  console.log('Fetching data for user ID:', userId);
 
   const query = 'SELECT username, email, age, gender, stress, dream_theme FROM users WHERE id = ?';
   db.query(query, [userId], (err, results) => {
@@ -232,7 +226,6 @@ app.get('/api/getUserData', (req, res) => {
 
     if (results.length > 0) {
       const user = results[0];
-      console.log('User data fetched:', user);
       res.json({
         status: 'success',
         user: {
@@ -245,7 +238,6 @@ app.get('/api/getUserData', (req, res) => {
         }
       });
     } else {
-      console.log('User not found');
       res.status(404).json({ status: 'error', message: 'User not found' });
     }
   });
@@ -262,7 +254,6 @@ app.post('/api/changePassword', (req, res) => {
 
   db.query('SELECT * FROM users WHERE id = ?', [userId], (err, results) => {
     if (err) {
-      console.error('Database query failed:', err);
       return res.status(500).json({ status: 'error', message: 'Database query failed' });
     }
 
@@ -271,7 +262,6 @@ app.post('/api/changePassword', (req, res) => {
 
       bcrypt.compare(currentPassword, user.password, (err, isMatch) => {
         if (err) {
-          console.error('Error comparing passwords:', err);
           return res.status(500).json({ status: 'error', message: 'Error comparing passwords' });
         }
 
@@ -282,17 +272,14 @@ app.post('/api/changePassword', (req, res) => {
 
           bcrypt.hash(newPassword, 10, (err, hash) => {
             if (err) {
-              console.error('Error hashing new password:', err);
               return res.status(500).json({ status: 'error', message: 'Error hashing new password' });
             }
 
             db.query('UPDATE users SET password = ? WHERE id = ?', [hash, userId], (err, results) => {
               if (err) {
-                console.error('Error updating password:', err);
                 return res.status(500).json({ status: 'error', message: 'Error updating password' });
               }
 
-              console.log('Password updated:', results);
               res.json({ status: 'success', message: 'Password updated successfully' });
             });
           });
@@ -316,20 +303,123 @@ app.post('/api/deleteAccount', (req, res) => {
   const query = 'UPDATE users SET deleted_flag = 1 WHERE id = ?';
   db.query(query, [userId], (err, results) => {
     if (err) {
-      console.error('Error deleting user:', err);
       return res.status(500).json({ status: 'error', message: 'Error deleting user' });
     }
 
     req.session.destroy((err) => {
       if (err) {
-        console.error('Error destroying session:', err);
         return res.status(500).json({ status: 'error', message: 'Failed to delete account' });
       }
 
       res.clearCookie('connect.sid', { path: '/' });
-      console.log('User account deleted and session destroyed:', results);
       res.json({ status: 'success', message: 'Account deleted successfully' });
     });
+  });
+});
+
+// 認証キーを生成する関数
+function generateAuthKey() {
+  return crypto.randomBytes(5).toString('hex'); // 10桁の英数字を生成
+}
+
+// Nodemailerを使用してメールを送信する設定
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL,
+    pass: process.env.EMAIL_PASSWORD
+  }
+});
+
+// パスワードリセットリクエストを処理するエンドポイント
+app.post('/api/request-password-reset', (req, res) => {
+    const { email } = req.body;
+    console.log('Received password reset request for email:', email);
+  
+    const query = 'SELECT * FROM users WHERE email = ? AND deleted_flag = 0';
+    db.query(query, [email], (err, results) => {
+      if (err) {
+        console.error('Database query failed:', err);
+        return res.status(500).json({ status: 'error', message: 'Database query failed' });
+      }
+  
+      console.log('Database query results:', results);
+  
+      if (results.length > 0) {
+        const user = results[0];
+        const resetToken = crypto.randomBytes(10).toString('hex');
+        const expireTime = Date.now() + 10 * 60 * 1000; // 10分
+        console.log('Generated reset token:', resetToken);
+  
+        const tokenQuery = 'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?';
+        db.query(tokenQuery, [resetToken, expireTime, user.id], (err, updateResults) => {
+          if (err) {
+            console.error('Error updating reset token:', err);
+            return res.status(500).json({ status: 'error', message: 'Error updating reset token' });
+          }
+  
+          console.log('Updated user with reset token:', updateResults);
+  
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: process.env.EMAIL,
+              pass: process.env.EMAIL_PASSWORD
+            }
+          });
+  
+          const mailOptions = {
+            from: process.env.EMAIL,
+            to: email,
+            subject: 'パスワードリセットリクエスト',
+            text: `以下のリンクをクリックしてパスワードをリセットしてください。\n\nhttp://localhost:8080/password-reset/${resetToken}\n\nこのリンクは10分間有効です。`
+          };
+  
+          transporter.sendMail(mailOptions, (err, info) => {
+            if (err) {
+              console.error('Error sending email:', err);
+              return res.status(500).json({ status: 'error', message: 'Error sending email' });
+            }
+  
+            console.log('Password reset email sent:', info.response);
+            res.json({ status: 'success', message: 'Password reset email sent successfully' });
+          });
+        });
+      } else {
+        res.status(404).json({ status: 'error', message: 'メールアドレスが見つかりませんでした。' });
+      }
+    });
+  });
+  
+// 認証キーを確認し、パスワードを再設定するエンドポイント
+app.post('/api/reset-password', (req, res) => {
+  const { email, key, newPassword } = req.body;
+
+  db.query('SELECT * FROM users WHERE email = ? AND reset_key = ? AND reset_key_expiration > NOW()', [email, key], (err, results) => {
+    if (err) {
+      return res.status(500).json({ status: 'error', message: 'Database query failed' });
+    }
+
+    if (results.length > 0) {
+      const user = results[0];
+
+      bcrypt.hash(newPassword, 10, (err, hash) => {
+        if (err) {
+          return res.status(500).json({ status: 'error', message: 'Error hashing new password' });
+        }
+
+        db.query('UPDATE users SET password = ?, reset_key = NULL, reset_key_expiration = NULL WHERE id = ?', [hash, user.id], (err, updateResults) => {
+          if (err) {
+            return res.status(500).json({ status: 'error', message: 'Error updating password' });
+          }
+
+          req.session.user = user; // パスワード再設定後、ユーザーをログイン状態にする
+          res.json({ status: 'success', message: 'パスワードが正常にリセットされました。' });
+        });
+      });
+    } else {
+      res.status(400).json({ status: 'error', message: '認証キーが無効か期限切れです。' });
+    }
   });
 });
 
