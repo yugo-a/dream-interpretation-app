@@ -430,91 +430,133 @@ app.post('/api/reset-password', (req, res) => {
   });
 });
 
-// お気に入り一括追加エンドポイント（新規追加）
+// お気に入り一括追加エンドポイント（修正後）
 app.post('/api/addAllFavorites', (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-  }
-
-  const userId = req.session.user.id;
-  const interactions = req.body.interactions;
-
-  if (!interactions || !Array.isArray(interactions) || interactions.length === 0) {
-    return res.status(400).json({ status: 'error', message: '有効なインタラクションがありません。' });
-  }
-
-  const values = interactions.map(interaction => [userId, interaction.userMessage, interaction.aiMessage]);
-
-  const query = 'INSERT INTO favorites (user_id, user_message, ai_message) VALUES ?';
-  db.query(query, [values], (err, results) => {
-    if (err) {
-      console.error('お気に入りの一括追加に失敗しました:', err);
-      return res.status(500).json({ status: 'error', message: 'お気に入りの一括追加に失敗しました。' });
+    if (!req.session.user) {
+      return res.status(401).json({ status: 'error', message: 'Unauthorized' });
     }
-    res.json({ status: 'success', message: 'すべてのお気に入りを追加しました。' });
-  });
-});
-
-// 個別のお気に入り追加エンドポイント（必要に応じて）
-app.post('/api/addFavorite', (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-  }
-
-  const userId = req.session.user.id;
-  const { userMessage, aiMessage } = req.body.interaction;
-
-  if (!userMessage || !aiMessage) {
-    return res.status(400).json({ status: 'error', message: '有効なメッセージがありません。' });
-  }
-
-  const query = 'INSERT INTO favorites (user_id, user_message, ai_message) VALUES (?, ?, ?)';
-  db.query(query, [userId, userMessage, aiMessage], (err, results) => {
-    if (err) {
-      console.error('お気に入りの追加に失敗しました:', err);
-      return res.status(500).json({ status: 'error', message: 'お気に入りの追加に失敗しました。' });
+  
+    const userId = req.session.user.id;
+    const interactions = req.body.interactions;
+  
+    if (!interactions || !Array.isArray(interactions) || interactions.length === 0) {
+      return res.status(400).json({ status: 'error', message: '有効なインタラクションがありません。' });
     }
-    res.json({ status: 'success', message: 'お気に入りを追加しました。' });
+  
+    // トランザクションを開始
+    db.beginTransaction(err => {
+      if (err) {
+        console.error('トランザクション開始エラー:', err);
+        return res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+      }
+  
+      // favorites テーブルに新しいセッションを挿入
+      const favoriteQuery = 'INSERT INTO favorites (user_id) VALUES (?)';
+      db.query(favoriteQuery, [userId], (err, favoriteResult) => {
+        if (err) {
+          return db.rollback(() => {
+            console.error('favorites テーブルへの挿入エラー:', err);
+            res.status(500).json({ status: 'error', message: 'お気に入りの追加に失敗しました。' });
+          });
+        }
+  
+        const favoriteId = favoriteResult.insertId;
+  
+        // interactions テーブルにやりとりを挿入
+        const interactionValues = interactions.map(interaction => [favoriteId, interaction.userMessage, interaction.aiMessage]);
+        const interactionQuery = 'INSERT INTO interactions (favorite_id, user_message, ai_message) VALUES ?';
+        db.query(interactionQuery, [interactionValues], (err, interactionResult) => {
+          if (err) {
+            return db.rollback(() => {
+              console.error('interactions テーブルへの挿入エラー:', err);
+              res.status(500).json({ status: 'error', message: 'お気に入りの追加に失敗しました。' });
+            });
+          }
+  
+          // トランザクションをコミット
+          db.commit(err => {
+            if (err) {
+              return db.rollback(() => {
+                console.error('トランザクションコミットエラー:', err);
+                res.status(500).json({ status: 'error', message: 'お気に入りの追加に失敗しました。' });
+              });
+            }
+  
+            res.json({ status: 'success', message: 'すべてのお気に入りを追加しました。' });
+          });
+        });
+      });
+    });
   });
-});
+    
 
-// お気に入り取得エンドポイント
+// お気に入り取得エンドポイント（修正後）
 app.get('/api/getFavorites', (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-  }
-
-  const userId = req.session.user.id;
-
-  const query = 'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC';
-  db.query(query, [userId], (err, results) => {
-    if (err) {
-      console.error('お気に入りの取得に失敗しました:', err);
-      return res.status(500).json({ status: 'error', message: 'お気に入りの取得に失敗しました。' });
+    if (!req.session.user) {
+      return res.status(401).json({ status: 'error', message: 'Unauthorized' });
     }
-    res.json({ status: 'success', favorites: results });
+  
+    const userId = req.session.user.id;
+  
+    const query = `
+      SELECT f.id as favorite_id, f.created_at, i.user_message, i.ai_message
+      FROM favorites f
+      JOIN interactions i ON f.id = i.favorite_id
+      WHERE f.user_id = ?
+      ORDER BY f.created_at DESC, i.id ASC
+    `;
+    
+    db.query(query, [userId], (err, results) => {
+      if (err) {
+        console.error('お気に入りの取得に失敗しました:', err);
+        return res.status(500).json({ status: 'error', message: 'お気に入りの取得に失敗しました。' });
+      }
+  
+      // favorite_id ごとにグループ化
+      const favoritesMap = {};
+      results.forEach(row => {
+        if (!favoritesMap[row.favorite_id]) {
+          favoritesMap[row.favorite_id] = {
+            id: row.favorite_id,
+            created_at: row.created_at,
+            interactions: []
+          };
+        }
+        favoritesMap[row.favorite_id].interactions.push({
+          userMessage: row.user_message,
+          aiMessage: row.ai_message
+        });
+      });
+  
+      const favorites = Object.values(favoritesMap);
+  
+      res.json({ status: 'success', favorites });
+    });
   });
-});
-
-// お気に入り削除エンドポイント
+    
+// お気に入り削除エンドポイント（修正後）
 app.post('/api/deleteFavorite', (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-  }
-
-  const userId = req.session.user.id;
-  const favoriteId = req.body.id;
-
-  const query = 'DELETE FROM favorites WHERE id = ? AND user_id = ?';
-  db.query(query, [favoriteId, userId], (err, results) => {
-    if (err) {
-      console.error('お気に入りの削除に失敗しました:', err);
-      return res.status(500).json({ status: 'error', message: 'お気に入りの削除に失敗しました。' });
+    if (!req.session.user) {
+      return res.status(401).json({ status: 'error', message: 'Unauthorized' });
     }
-    res.json({ status: 'success', message: 'お気に入りを削除しました。' });
+  
+    const userId = req.session.user.id;
+    const favoriteId = req.body.id;
+  
+    // favorites テーブルからお気に入りを削除
+    const query = 'DELETE FROM favorites WHERE id = ? AND user_id = ?';
+    db.query(query, [favoriteId, userId], (err, results) => {
+      if (err) {
+        console.error('お気に入りの削除に失敗しました:', err);
+        return res.status(500).json({ status: 'error', message: 'お気に入りの削除に失敗しました。' });
+      }
+      if (results.affectedRows === 0) {
+        return res.status(404).json({ status: 'error', message: 'お気に入りが見つかりませんでした。' });
+      }
+      res.json({ status: 'success', message: 'お気に入りを削除しました。' });
+    });
   });
-});
-
+  
 app.use((req, res, next) => {
   console.log(`404 Not Found: ${req.method} ${req.url}`);
   res.status(404).send("Sorry can't find that!");
