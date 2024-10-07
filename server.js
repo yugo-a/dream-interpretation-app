@@ -173,11 +173,12 @@ app.post('/api/interpret-dream', async (req, res) => {
 
   try {
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: "gpt-3.5-turbo",
+      model: "gpt-4",
       messages: [
         { role: "system", content: "あなたはプロの夢占い師です。ユーザーの夢について日本語で解釈を提供してください。" },
         { role: "user", content: dream }
-      ]
+      ],
+      max_tokens: 2000
     }, {
       headers: {
         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
