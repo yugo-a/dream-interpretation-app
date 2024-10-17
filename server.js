@@ -2,14 +2,16 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
+const express = require('express');
 const mysql = require('mysql');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const axios = require('axios');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-const url = require('url');
+const dotenv = require('dotenv');
 
+// 環境変数の読み込みを最初に行う
 dotenv.config();
 
 const app = express();
@@ -28,15 +30,13 @@ let db;
 
 if (process.env.JAWSDB_URL) {
   // Heroku環境でのJawsDB MySQL接続設定
-  const connectionString = process.env.JAWSDB_URL;
-  const dbUrl = url.parse(connectionString);
-  const [username, password] = dbUrl.auth.split(':');
+  const dbUrl = new URL(process.env.JAWSDB_URL);
 
   db = mysql.createConnection({
     host: dbUrl.hostname,
-    user: username,
-    password: password,
-    database: dbUrl.pathname.substring(1),
+    user: dbUrl.username,
+    password: dbUrl.password,
+    database: dbUrl.pathname.substring(1), // `/`を除外
   });
 } else {
   // ローカル環境でのMySQL接続設定
