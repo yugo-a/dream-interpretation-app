@@ -1,15 +1,12 @@
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
-const express = require('express');
 const mysql = require('mysql');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const axios = require('axios');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-const dotenv = require('dotenv');
 
 // 環境変数の読み込みを最初に行う
 dotenv.config();
@@ -73,7 +70,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-app.use(bodyParser.json());
+// bodyParser.json() を express.json() に置き換え
+app.use(express.json());
 
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -568,7 +566,7 @@ app.use((req, res, next) => {
   res.status(404).send("Sorry can't find that!");
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
