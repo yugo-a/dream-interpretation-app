@@ -8,6 +8,7 @@ const session = require('express-session');
 const axios = require('axios');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const url = require('url');
 
 dotenv.config();
 
@@ -25,32 +26,36 @@ const transporter = nodemailer.createTransport({
 // MySQLデータベース接続の設定
 let db;
 
-function handleDisconnect() {
+if (process.env.JAWSDB_URL) {
+  // Heroku環境でのJawsDB MySQL接続設定
+  const connectionString = process.env.JAWSDB_URL;
+  const dbUrl = url.parse(connectionString);
+  const [username, password] = dbUrl.auth.split(':');
+
   db = mysql.createConnection({
-    host: process.env.DB_HOST === 'localhost' ? '127.0.0.1' : process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
+    host: dbUrl.hostname,
+    user: username,
+    password: password,
+    database: dbUrl.pathname.substring(1),
+  });
+} else {
+  // ローカル環境でのMySQL接続設定
+  db = mysql.createConnection({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'your_local_db',
     port: process.env.DB_PORT || 3306
   });
-  db.connect((err) => {
-    if (err) {
-      console.error('Database connection failed:', err.stack);
-      setTimeout(handleDisconnect, 2000);
-    } else {
-      console.log('Connected to database.');
-    }
-  });
-  db.on('error', (err) => {
-    console.error('Database error:', err);
-    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
-      handleDisconnect();
-    } else {
-      throw err;
-    }
-  });
 }
-handleDisconnect();
+
+db.connect((err) => {
+  if (err) {
+    console.error('Database connection failed:', err.stack);
+    return;
+  }
+  console.log('Connected to database.');
+});
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your_secret_key',
