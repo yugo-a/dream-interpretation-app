@@ -1,12 +1,12 @@
-<!-- frontend/src/components/Logout.vue -->
+<!-- frontend/src/components/ChatBox.vue -->
 
 <template>
-    <div>Logout Component Placeholder</div>
+    <div>ChatBox Component Placeholder</div>
   </template>
   
   <script>
   export default {
-    name: 'Logout',
+    name: 'ChatBox',
   };
   </script>
   

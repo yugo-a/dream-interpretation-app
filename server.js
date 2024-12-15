@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -20,7 +21,7 @@ const transporter = nodemailer.createTransport({
       user: process.env.EMAIL,
       pass: process.env.EMAIL_PASSWORD
     }
-  });
+});
 
 // MySQLデータベース接続の設定
 let db;
@@ -51,17 +52,19 @@ function handleDisconnect() {
         throw err;
       }
     });
-  }
-  
+}
+
 handleDisconnect();
 
+// セッションミドルウェアの設定
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your_secret_key',
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: false }
+  cookie: { secure: false } // 本番環境では true に設定し、HTTPSを使用する
 }));
 
+// CORSの設定
 const corsOptions = {
   origin: 'http://localhost:8080',
   credentials: true,
@@ -71,8 +74,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
+// ボディパーサーの設定
 app.use(bodyParser.json());
 
+// ログミドルウェア
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   console.log('Request Headers:', req.headers);
@@ -80,10 +85,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// ルートエンドポイント
 app.get('/', (req, res) => {
   console.log('GET request to /');
   res.send('API is running');
 });
+
+// 認証ミドルウェアの作成
+function isAuthenticated(req, res, next) {
+  if (req.session && req.session.user) {
+      next();
+  } else {
+      res.status(401).json({ status: 'error', message: 'Unauthorized' });
+  }
+}
 
 // ユーザー登録エンドポイント
 app.post('/api/register', (req, res) => {
@@ -175,6 +190,7 @@ app.post('/api/interpret-dream', async (req, res) => {
   const { dream } = req.body;
 
   try {
+    // OpenAI APIにリクエストを送信
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: "gpt-3.5-turbo",
       messages: [
@@ -189,7 +205,19 @@ app.post('/api/interpret-dream', async (req, res) => {
     });
 
     const interpretation = response.data.choices[0].message.content;
-    res.json({ success: true, interpretation });
+
+    // ユーザーのメッセージとAIの解釈をデータベースに保存
+    const insertInteractionQuery = 'INSERT INTO interactions (user_message, ai_message) VALUES (?, ?)';
+    db.query(insertInteractionQuery, [dream, interpretation], (err, results) => {
+      if (err) {
+        console.error('Error inserting interaction:', err);
+        return res.status(500).json({ success: false, message: 'Failed to store interaction.' });
+      }
+
+      const interactionId = results.insertId; // 生成されたinteraction.id
+
+      res.json({ success: true, interpretation, interactionId });
+    });
   } catch (error) {
     console.error('Error calling OpenAI API:', error.message, error.response ? error.response.data : 'No response data');
     res.status(500).json({ success: false, message: 'Failed to interpret the dream.' });
@@ -197,12 +225,8 @@ app.post('/api/interpret-dream', async (req, res) => {
 });
 
 // ユーザー情報更新エンドポイント
-app.post('/api/updateUser', (req, res) => {
+app.post('/api/updateUser', isAuthenticated, (req, res) => {
   const { username, email, age, gender, stress, dreamTheme } = req.body;
-
-  if (!req.session.user) {
-    return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-  }
 
   if (!username.trim()) {
     return res.status(400).json({ status: 'error', message: 'ユーザー名を入力してください。' });
@@ -226,11 +250,7 @@ app.post('/api/updateUser', (req, res) => {
 });
 
 // ユーザーデータ取得エンドポイント
-app.get('/api/getUserData', (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-  }
-
+app.get('/api/getUserData', isAuthenticated, (req, res) => {
   const userId = req.session.user.id;
 
   const query = 'SELECT username, email, age, gender, stress, dream_theme FROM users WHERE id = ?';
@@ -260,12 +280,8 @@ app.get('/api/getUserData', (req, res) => {
 });
 
 // パスワード変更エンドポイント
-app.post('/api/changePassword', (req, res) => {
+app.post('/api/changePassword', isAuthenticated, (req, res) => {
   const { currentPassword, newPassword } = req.body;
-
-  if (!req.session.user) {
-    return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-  }
 
   const userId = req.session.user.id;
 
@@ -311,11 +327,7 @@ app.post('/api/changePassword', (req, res) => {
 });
 
 // アカウント削除エンドポイント
-app.post('/api/deleteAccount', (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-  }
-
+app.post('/api/deleteAccount', isAuthenticated, (req, res) => {
   const userId = req.session.user.id;
 
   const query = 'UPDATE users SET deleted_flag = 1 WHERE id = ?';
@@ -438,7 +450,134 @@ app.post('/api/request-password-reset', (req, res) => {
         }
     });
 });
-    
+
+// お気に入り追加エンドポイント
+app.post('/api/favorites', isAuthenticated, (req, res) => {
+  const { messageId } = req.body;
+
+  // バリデーション: messageIdが存在し、数値であることを確認
+  if (!messageId || typeof messageId !== 'number') {
+      return res.status(400).json({ status: 'error', message: '有効なメッセージIDが必要です。' });
+  }
+
+  const userId = req.session.user.id;
+
+  // アイテムの存在確認
+  const checkItemQuery = 'SELECT * FROM interactions WHERE id = ?';
+  db.query(checkItemQuery, [messageId], (err, items) => {
+      if (err) {
+          console.error('アイテム存在確認エラー:', err);
+          return res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+      }
+
+      if (items.length === 0) {
+          return res.status(404).json({ status: 'error', message: 'メッセージが見つかりません。' });
+      }
+
+      // 既にお気に入りに登録されているか確認
+      const checkFavoriteQuery = 'SELECT * FROM user_favorites WHERE user_id = ? AND message_id = ?';
+      db.query(checkFavoriteQuery, [userId, messageId], (err, favorites) => {
+          if (err) {
+              console.error('お気に入り存在確認エラー:', err);
+              return res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+          }
+
+          if (favorites.length > 0) {
+              return res.status(400).json({ status: 'error', message: '既にお気に入りに登録されています。' });
+          }
+
+          // お気に入りに追加
+          const addFavoriteQuery = 'INSERT INTO user_favorites (user_id, message_id) VALUES (?, ?)';
+          db.query(addFavoriteQuery, [userId, messageId], (err, result) => {
+              if (err) {
+                  console.error('お気に入り追加エラー:', err);
+                  return res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+              }
+
+              res.json({ status: 'success', message: 'お気に入りに追加しました。' });
+          });
+      });
+  });
+});
+
+// お気に入り解除エンドポイント
+app.delete('/api/favorites/:messageId', isAuthenticated, (req, res) => {
+  const { messageId } = req.params;
+
+  // パラメータが数値であることを確認
+  const parsedMessageId = parseInt(messageId, 10);
+  if (isNaN(parsedMessageId)) {
+      return res.status(400).json({ status: 'error', message: '有効なメッセージIDが必要です。' });
+  }
+
+  const userId = req.session.user.id;
+
+  // お気に入りに存在するか確認
+  const checkFavoriteQuery = 'SELECT * FROM user_favorites WHERE user_id = ? AND message_id = ?';
+  db.query(checkFavoriteQuery, [userId, parsedMessageId], (err, favorites) => {
+      if (err) {
+          console.error('お気に入り存在確認エラー:', err);
+          return res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+      }
+
+      if (favorites.length === 0) {
+          return res.status(400).json({ status: 'error', message: 'お気に入りに登録されていません。' });
+      }
+
+      // お気に入りから削除
+      const removeFavoriteQuery = 'DELETE FROM user_favorites WHERE user_id = ? AND message_id = ?';
+      db.query(removeFavoriteQuery, [userId, parsedMessageId], (err, result) => {
+          if (err) {
+              console.error('お気に入り解除エラー:', err);
+              return res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+          }
+
+          res.json({ status: 'success', message: 'お気に入りから削除しました。' });
+      });
+  });
+});
+
+// お気に入り一覧取得エンドポイント
+app.get('/api/favorites', isAuthenticated, (req, res) => {
+  const userId = req.session.user.id;
+
+  const getFavoritesQuery = `
+      SELECT interactions.id, interactions.user_message, interactions.ai_message, interactions.created_at AS interaction_created_at, user_favorites.favorited_at
+      FROM user_favorites
+      JOIN interactions ON user_favorites.message_id = interactions.id
+      WHERE user_favorites.user_id = ?
+      ORDER BY user_favorites.favorited_at DESC
+  `;
+
+  db.query(getFavoritesQuery, [userId], (err, results) => {
+      if (err) {
+          console.error('お気に入り取得エラー:', err);
+          return res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+      }
+
+      res.json({ status: 'success', favorites: results });
+  });
+});
+
+// **新規追加: 全インタラクションを取得するエンドポイント**
+app.get('/api/interactions', isAuthenticated, (req, res) => {
+  const getInteractionsQuery = `
+    SELECT id, user_message, ai_message, created_at
+    FROM interactions
+    ORDER BY created_at DESC
+  `;
+
+  db.query(getInteractionsQuery, (err, results) => {
+    if (err) {
+      console.error('インタラクション取得エラー:', err);
+      return res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+    }
+
+    res.json({ status: 'success', interactions: results });
+  });
+});
+
+// 404 Not Found ハンドラー
 app.use((req, res, next) => {
   console.log(`404 Not Found: ${req.method} ${req.url}`);
   res.status(404).send("Sorry can't find that!");
