@@ -8,6 +8,7 @@ const session = require('express-session');
 const axios = require('axios');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const path = require('path');
 
 // 環境変数の読み込みを最初に行う
 dotenv.config();
@@ -16,84 +17,64 @@ const app = express();
 
 // Nodemailerのtransporter設定
 const transporter = nodemailer.createTransport({
-<<<<<<< HEAD
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL,
-      pass: process.env.EMAIL_PASSWORD
-    }
-=======
   service: 'gmail',
   auth: {
     user: process.env.EMAIL,
     pass: process.env.EMAIL_PASSWORD
   }
->>>>>>> c06c6cf5944d30e43412a7a1a58f775aca3681e2
 });
 
 // MySQLデータベース接続の設定
 let db;
 
-<<<<<<< HEAD
 function handleDisconnect() {
-    db = mysql.createConnection({
+  let dbConfig;
+
+  if (process.env.JAWSDB_URL) {
+    // Heroku環境でのJawsDB MySQL接続設定
+    const dbUrl = new URL(process.env.JAWSDB_URL);
+
+    dbConfig = {
+      host: dbUrl.hostname,
+      user: dbUrl.username,
+      password: dbUrl.password,
+      database: dbUrl.pathname.substring(1), // `/`を除外
+    };
+  } else {
+    // ローカル環境でのMySQL接続設定
+    dbConfig = {
       host: process.env.DB_HOST === 'localhost' ? '127.0.0.1' : process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      port: process.env.DB_PORT || 8889
-    });
-  
-    db.connect((err) => {
-      if (err) {
-        console.error('Database connection failed:', err.stack);
-        setTimeout(handleDisconnect, 2000);
-      } else {
-        console.log('Connected to database.');
-      }
-    });
-  
-    db.on('error', (err) => {
-      console.error('Database error:', err);
-      if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
-        handleDisconnect();
-      } else {
-        throw err;
-      }
-    });
+      port: process.env.DB_PORT || 3306
+    };
+  }
+
+  db = mysql.createConnection(dbConfig);
+
+  db.connect((err) => {
+    if (err) {
+      console.error('Database connection failed:', err.stack);
+      // 接続に失敗した場合、2秒後に再試行
+      setTimeout(handleDisconnect, 2000);
+    } else {
+      console.log('Connected to database.');
+    }
+  });
+
+  // 接続が切れた場合に再接続を試みる
+  db.on('error', (err) => {
+    console.error('Database error:', err);
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+      handleDisconnect();
+    } else {
+      throw err;
+    }
+  });
 }
 
 handleDisconnect();
-=======
-if (process.env.JAWSDB_URL) {
-  // Heroku環境でのJawsDB MySQL接続設定
-  const dbUrl = new URL(process.env.JAWSDB_URL);
-
-  db = mysql.createConnection({
-    host: dbUrl.hostname,
-    user: dbUrl.username,
-    password: dbUrl.password,
-    database: dbUrl.pathname.substring(1), // `/`を除外
-  });
-} else {
-  // ローカル環境でのMySQL接続設定
-  db = mysql.createConnection({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'your_local_db',
-    port: process.env.DB_PORT || 3306
-  });
-}
-
-db.connect((err) => {
-  if (err) {
-    console.error('Database connection failed:', err.stack);
-    return;
-  }
-  console.log('Connected to database.');
-});
->>>>>>> c06c6cf5944d30e43412a7a1a58f775aca3681e2
 
 // セッションミドルウェアの設定
 app.use(session({
@@ -113,13 +94,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-<<<<<<< HEAD
-// ボディパーサーの設定
-app.use(bodyParser.json());
-=======
-// bodyParser.json() を express.json() に置き換え
+// express で JSON ボディをパース
 app.use(express.json());
->>>>>>> c06c6cf5944d30e43412a7a1a58f775aca3681e2
 
 // ログミドルウェア
 app.use((req, res, next) => {
@@ -138,9 +114,9 @@ app.get('/', (req, res) => {
 // 認証ミドルウェアの作成
 function isAuthenticated(req, res, next) {
   if (req.session && req.session.user) {
-      next();
+    next();
   } else {
-      res.status(401).json({ status: 'error', message: 'Unauthorized' });
+    res.status(401).json({ status: 'error', message: 'Unauthorized' });
   }
 }
 
@@ -235,19 +211,23 @@ app.post('/api/interpret-dream', async (req, res) => {
 
   try {
     // OpenAI APIにリクエストを送信
-    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: "あなたはプロの夢占い師です。ユーザーの夢について日本語で解釈を提供してください。" },
-        { role: "user", content: dream }
-      ],
-      max_tokens: 2000
-    }, {
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4',
+        messages: [
+          { role: 'system', content: 'あなたはプロの夢占い師です。ユーザーの夢について日本語で解釈を提供してください。' },
+          { role: 'user', content: dream }
+        ],
+        max_tokens: 2000
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
       }
-    });
+    );
 
     const interpretation = response.data.choices[0].message.content;
 
@@ -264,7 +244,11 @@ app.post('/api/interpret-dream', async (req, res) => {
       res.json({ success: true, interpretation, interactionId });
     });
   } catch (error) {
-    console.error('Error calling OpenAI API:', error.message, error.response ? error.response.data : 'No response data');
+    console.error(
+      'Error calling OpenAI API:',
+      error.message,
+      error.response ? error.response.data : 'No response data'
+    );
     res.status(500).json({ success: false, message: 'Failed to interpret the dream.' });
   }
 });
@@ -283,22 +267,28 @@ app.post('/api/updateUser', isAuthenticated, (req, res) => {
 
   const userId = req.session.user.id;
 
-  const query = 'UPDATE users SET username = ?, email = ?, age = ?, gender = ?, stress = ?, dream_theme = ? WHERE id = ?';
-  db.query(query, [username, email, age || null, gender || null, stress || null, dreamTheme || null, userId], (err, results) => {
-    if (err) {
-      console.error('Error updating user:', err);
-      return res.status(500).json({ status: 'error', message: 'Error updating user' });
-    }
+  const query =
+    'UPDATE users SET username = ?, email = ?, age = ?, gender = ?, stress = ?, dream_theme = ? WHERE id = ?';
+  db.query(
+    query,
+    [username, email, age || null, gender || null, stress || null, dreamTheme || null, userId],
+    (err, results) => {
+      if (err) {
+        console.error('Error updating user:', err);
+        return res.status(500).json({ status: 'error', message: 'Error updating user' });
+      }
 
-    res.json({ status: 'success', message: 'User updated successfully' });
-  });
+      res.json({ status: 'success', message: 'User updated successfully' });
+    }
+  );
 });
 
 // ユーザーデータ取得エンドポイント
 app.get('/api/getUserData', isAuthenticated, (req, res) => {
   const userId = req.session.user.id;
 
-  const query = 'SELECT username, email, age, gender, stress, dream_theme FROM users WHERE id = ?';
+  const query =
+    'SELECT username, email, age, gender, stress, dream_theme FROM users WHERE id = ?';
   db.query(query, [userId], (err, results) => {
     if (err) {
       console.error('Error fetching user data:', err);
@@ -327,7 +317,6 @@ app.get('/api/getUserData', isAuthenticated, (req, res) => {
 // パスワード変更エンドポイント
 app.post('/api/changePassword', isAuthenticated, (req, res) => {
   const { currentPassword, newPassword } = req.body;
-
   const userId = req.session.user.id;
 
   db.query('SELECT * FROM users WHERE id = ?', [userId], (err, results) => {
@@ -345,24 +334,32 @@ app.post('/api/changePassword', isAuthenticated, (req, res) => {
 
         if (isMatch) {
           if (currentPassword === newPassword) {
-            return res.status(400).json({ status: 'error', message: '新しいパスワードが現在のパスワードと同じです。' });
+            return res
+              .status(400)
+              .json({ status: 'error', message: '新しいパスワードが現在のパスワードと同じです。' });
           }
 
           bcrypt.hash(newPassword, 10, (err, hash) => {
             if (err) {
-              return res.status(500).json({ status: 'error', message: 'Error hashing new password' });
+              return res
+                .status(500)
+                .json({ status: 'error', message: 'Error hashing new password' });
             }
 
-            db.query('UPDATE users SET password = ? WHERE id = ?', [hash, userId], (err, results) => {
+            db.query('UPDATE users SET password = ? WHERE id = ?', [hash, userId], (err) => {
               if (err) {
-                return res.status(500).json({ status: 'error', message: 'Error updating password' });
+                return res
+                  .status(500)
+                  .json({ status: 'error', message: 'Error updating password' });
               }
 
               res.json({ status: 'success', message: 'Password updated successfully' });
             });
           });
         } else {
-          res.status(400).json({ status: 'error', message: '現在のパスワードが間違っています。' });
+          res
+            .status(400)
+            .json({ status: 'error', message: '現在のパスワードが間違っています。' });
         }
       });
     } else {
@@ -376,7 +373,7 @@ app.post('/api/deleteAccount', isAuthenticated, (req, res) => {
   const userId = req.session.user.id;
 
   const query = 'UPDATE users SET deleted_flag = 1 WHERE id = ?';
-  db.query(query, [userId], (err, results) => {
+  db.query(query, [userId], (err) => {
     if (err) {
       return res.status(500).json({ status: 'error', message: 'Error deleting user' });
     }
@@ -408,18 +405,27 @@ app.post('/api/request-password-reset', (req, res) => {
       const user = results[0];
       const resetKey = crypto.randomBytes(5).toString('hex');
 
-      const expireTime = new Date(Date.now() + 10 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+      // 10分後の時刻
+      const expireTime = new Date(Date.now() + 10 * 60 * 1000)
+        .toISOString()
+        .slice(0, 19)
+        .replace('T', ' ');
 
       console.log(`Calculated expiration time: ${expireTime}`);
 
-      const tokenQuery = 'UPDATE users SET reset_key = ?, reset_key_expiration = ? WHERE id = ?';
-      db.query(tokenQuery, [resetKey, expireTime, user.id], (err, updateResults) => {
+      const tokenQuery =
+        'UPDATE users SET reset_key = ?, reset_key_expiration = ? WHERE id = ?';
+      db.query(tokenQuery, [resetKey, expireTime, user.id], (err) => {
         if (err) {
           console.error('Error updating reset token:', err);
-          return res.status(500).json({ status: 'error', message: 'リセットトークンの更新に失敗しました。' });
+          return res
+            .status(500)
+            .json({ status: 'error', message: 'リセットトークンの更新に失敗しました。' });
         }
 
-        console.log(`Generated reset key: ${resetKey} with expiration time: ${expireTime} for user ID: ${user.id}`);
+        console.log(
+          `Generated reset key: ${resetKey} with expiration time: ${expireTime} for user ID: ${user.id}`
+        );
 
         const mailOptions = {
           from: process.env.EMAIL,
@@ -431,15 +437,22 @@ app.post('/api/request-password-reset', (req, res) => {
         transporter.sendMail(mailOptions, (err, info) => {
           if (err) {
             console.error('Error sending email:', err);
-            return res.status(500).json({ status: 'error', message: 'メールの送信に失敗しました。' });
+            return res
+              .status(500)
+              .json({ status: 'error', message: 'メールの送信に失敗しました。' });
           }
 
           console.log('Password reset email sent:', info.response);
-          res.json({ status: 'success', message: 'パスワードリセット用のメールを送信しました。' });
+          res.json({
+            status: 'success',
+            message: 'パスワードリセット用のメールを送信しました。'
+          });
         });
       });
     } else {
-      res.status(404).json({ status: 'error', message: 'メールアドレスが見つかりませんでした。' });
+      res
+        .status(404)
+        .json({ status: 'error', message: 'メールアドレスが見つかりませんでした。' });
     }
   });
 });
@@ -465,7 +478,8 @@ app.post('/api/favorites', isAuthenticated, (req, res) => {
       return res.status(404).json({ status: 'error', message: 'メッセージが見つかりません。' });
     }
 
-    const checkFavoriteQuery = 'SELECT * FROM user_favorites WHERE user_id = ? AND message_id = ?';
+    const checkFavoriteQuery =
+      'SELECT * FROM user_favorites WHERE user_id = ? AND message_id = ?';
     db.query(checkFavoriteQuery, [userId, messageId], (err, favorites) => {
       if (err) {
         console.error('お気に入り存在確認エラー:', err);
@@ -473,14 +487,19 @@ app.post('/api/favorites', isAuthenticated, (req, res) => {
       }
 
       if (favorites.length > 0) {
-        return res.status(400).json({ status: 'error', message: '既にお気に入りに登録されています。' });
+        return res
+          .status(400)
+          .json({ status: 'error', message: '既にお気に入りに登録されています。' });
       }
 
-      const addFavoriteQuery = 'INSERT INTO user_favorites (user_id, message_id) VALUES (?, ?)';
+      const addFavoriteQuery =
+        'INSERT INTO user_favorites (user_id, message_id) VALUES (?, ?)';
       db.query(addFavoriteQuery, [userId, messageId], (err) => {
         if (err) {
           console.error('お気に入り追加エラー:', err);
-          return res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+          return res
+            .status(500)
+            .json({ status: 'error', message: 'サーバーエラーが発生しました。' });
         }
 
         res.json({ status: 'success', message: 'お気に入りに追加しました。' });
@@ -499,7 +518,8 @@ app.delete('/api/favorites/:messageId', isAuthenticated, (req, res) => {
 
   const userId = req.session.user.id;
 
-  const removeFavoriteQuery = 'DELETE FROM user_favorites WHERE user_id = ? AND message_id = ?';
+  const removeFavoriteQuery =
+    'DELETE FROM user_favorites WHERE user_id = ? AND message_id = ?';
   db.query(removeFavoriteQuery, [userId, parsedMessageId], (err, result) => {
     if (err) {
       console.error('お気に入り解除エラー:', err);
@@ -518,7 +538,12 @@ app.get('/api/favorites', isAuthenticated, (req, res) => {
   const userId = req.session.user.id;
 
   const getFavoritesQuery = `
-    SELECT interactions.id, interactions.user_message, interactions.ai_message, interactions.created_at AS interaction_created_at, user_favorites.favorited_at
+    SELECT 
+      interactions.id, 
+      interactions.user_message, 
+      interactions.ai_message, 
+      interactions.created_at AS interaction_created_at, 
+      user_favorites.favorited_at
     FROM user_favorites
     JOIN interactions ON user_favorites.message_id = interactions.id
     WHERE user_favorites.user_id = ?
@@ -540,14 +565,18 @@ app.post('/api/reset-password', (req, res) => {
   const { key, newPassword } = req.body;
 
   if (!key || !newPassword) {
-    return res.status(400).json({ status: 'error', message: '認証キーまたは新しいパスワードが不足しています。' });
+    return res
+      .status(400)
+      .json({ status: 'error', message: '認証キーまたは新しいパスワードが不足しています。' });
   }
 
   const query = 'SELECT * FROM users WHERE reset_key = ? AND reset_key_expiration > NOW()';
   db.query(query, [key], (err, results) => {
     if (err) {
       console.error('Database query failed:', err);
-      return res.status(500).json({ status: 'error', message: 'データベースのクエリに失敗しました。' });
+      return res
+        .status(500)
+        .json({ status: 'error', message: 'データベースのクエリに失敗しました。' });
     }
 
     if (results.length > 0) {
@@ -555,26 +584,43 @@ app.post('/api/reset-password', (req, res) => {
 
       bcrypt.hash(newPassword, 10, (err, hash) => {
         if (err) {
-          return res.status(500).json({ status: 'error', message: 'パスワードのハッシュ化に失敗しました。' });
+          return res
+            .status(500)
+            .json({ status: 'error', message: 'パスワードのハッシュ化に失敗しました。' });
         }
 
-        const updateQuery = 'UPDATE users SET password = ?, reset_key = NULL, reset_key_expiration = NULL WHERE id = ?';
+        const updateQuery =
+          'UPDATE users SET password = ?, reset_key = NULL, reset_key_expiration = NULL WHERE id = ?';
         db.query(updateQuery, [hash, user.id], (err) => {
           if (err) {
-            return res.status(500).json({ status: 'error', message: 'パスワードの更新に失敗しました。' });
+            return res
+              .status(500)
+              .json({ status: 'error', message: 'パスワードの更新に失敗しました。' });
           }
 
           res.json({ status: 'success', message: 'パスワードが正常にリセットされました。' });
         });
       });
     } else {
-      res.status(400).json({ status: 'error', message: '認証キーが無効か期限切れです。' });
+      res
+        .status(400)
+        .json({ status: 'error', message: '認証キーが無効か期限切れです。' });
     }
   });
 });
-app.use((req, res, next) => {
+
+// 404 ハンドリングミドルウェア
+app.use((req, res) => {
   console.log(`404 Not Found: ${req.method} ${req.url}`);
   res.status(404).send("Sorry can't find that!");
+});
+
+// 静的ファイルの提供
+app.use(express.static(path.join(__dirname, 'frontend/dist')));
+
+// 他のリクエストをフロントエンドのindex.htmlに渡す
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
