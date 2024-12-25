@@ -110,9 +110,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// ルートエンドポイント
-app.get('/', (req, res) => {
-  console.log('GET request to /');
+/* 
+  以前あった「app.get('/') で 'API is running'」を
+  '/api' に変更し、トップパス('/') はフロントエンドへ委譲
+*/
+
+// API ルート例
+app.get('/api', (req, res) => {
+  console.log('GET request to /api');
   res.send('API is running');
 });
 
@@ -345,12 +350,6 @@ app.post('/api/reset-password', (req, res) => {
 /* =====================================
    ▲▲▲ DB関連の操作を一時的に無効化 ▲▲▲
 ====================================== */
-
-// 404 ハンドリングミドルウェア
-app.use((req, res) => {
-  console.log(`404 Not Found: ${req.method} ${req.url}`);
-  res.status(404).send("Sorry can't find that!");
-});
 
 // 静的ファイルの提供
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
