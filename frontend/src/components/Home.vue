@@ -89,43 +89,45 @@ export default {
     const escapeHTML = (str) =>
       str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-    /**
-     * ログイン状態を確認する関数
-     */
-    const checkLoginStatus = async () => {
-      try {
-        const response = await axios.get('http://localhost:3000/api/checksession', { withCredentials: true });
-        isLoggedIn.value = response.data.loggedIn;
-        if (isLoggedIn.value) {
-          await fetchFavorites();
-        }
-      } catch (error) {
-        console.error('ログイン状態確認エラー:', error);
-      }
-    };
+// 相対パスに変更した例
 
-    /**
-     * ユーザーのお気に入りアイテムを取得する関数
-     */
-    const fetchFavorites = async () => {
-      try {
-        const response = await axios.get('http://localhost:3000/api/favorites', { withCredentials: true });
-        if (response.data.status === 'success') {
-          const favoriteIds = response.data.favorites.map(fav => fav.message_id);
-          // チャット履歴の各メッセージにお気に入り状態を設定
-          chatHistory.value.forEach(msg => {
-            if (msg.type === 'bot') {
-              msg.isFavorite = favoriteIds.includes(msg.id);
-            }
-          });
-        } else {
-          toast.error(response.data.message || 'お気に入りの取得に失敗しました。');
+/**
+ * ログイン状態を確認する関数
+ */
+ const checkLoginStatus = async () => {
+  try {
+    const response = await axios.get('/api/checksession', { withCredentials: true });
+    isLoggedIn.value = response.data.loggedIn;
+    if (isLoggedIn.value) {
+      await fetchFavorites();
+    }
+  } catch (error) {
+    console.error('ログイン状態確認エラー:', error);
+  }
+};
+
+/**
+ * ユーザーのお気に入りアイテムを取得する関数
+ */
+const fetchFavorites = async () => {
+  try {
+    const response = await axios.get('/api/favorites', { withCredentials: true });
+    if (response.data.status === 'success') {
+      const favoriteIds = response.data.favorites.map(fav => fav.message_id);
+      // チャット履歴の各メッセージにお気に入り状態を設定
+      chatHistory.value.forEach(msg => {
+        if (msg.type === 'bot') {
+          msg.isFavorite = favoriteIds.includes(msg.id);
         }
-      } catch (error) {
-        console.error('お気に入り取得エラー:', error);
-        toast.error('サーバーエラーが発生しました。');
-      }
-    };
+      });
+    } else {
+      toast.error(response.data.message || 'お気に入りの取得に失敗しました。');
+    }
+  } catch (error) {
+    console.error('お気に入り取得エラー:', error);
+    toast.error('サーバーエラーが発生しました。');
+  }
+};
 
     /**
      * お気に入りを追加・解除する関数
