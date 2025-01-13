@@ -90,6 +90,7 @@ app.use(session({
   cookie: { secure: false } // 本番環境では true に設定し、HTTPSを使用する
 }));
 
+/*
 // CORSの設定
 const corsOptions = {
   origin: 'http://localhost:8080',
@@ -98,6 +99,8 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+*/
 
 // express で JSON ボディをパース
 app.use(express.json());

@@ -64,7 +64,7 @@
   </template>
   
   <script>
-  import axios from 'axios';
+  import axios from '@/axios';
   import { ref } from 'vue';
   import { useRouter } from 'vue-router';
   
@@ -109,7 +109,7 @@
         try {
           // 8. バックエンドにリクエストを送信
           const response = await axios.post(
-            'http://localhost:3000/api/changePassword',
+            '/changePassword',
             {
               currentPassword: currentPassword.value, // 現在のパスワード
               newPassword: newPassword.value,         // 新しいパスワード

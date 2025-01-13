@@ -125,7 +125,7 @@
   </template>
   
   <script>
-  import axios from 'axios';
+  import axios from '@/axios';
   import { ref, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
   
@@ -154,7 +154,7 @@
        */
       const fetchUserData = async () => {
         try {
-          const response = await axios.get('http://localhost:3000/api/getUserData', {
+          const response = await axios.get('/getUserData', {
             withCredentials: true, // クッキーを含める
           });
   
@@ -205,7 +205,7 @@
   
         try {
           const response = await axios.post(
-            'http://localhost:3000/api/updateUser',
+            '/updateUser',
             {
               username: username.value.trim(),
               email: email.value.trim(),
@@ -249,7 +249,7 @@
         deleteErrorMessage.value = '';
         
         try {
-          const response = await axios.delete('http://localhost:3000/api/deleteAccount', {
+          const response = await axios.delete('/deleteAccount', {
             withCredentials: true, // クッキーを含める
           });
   

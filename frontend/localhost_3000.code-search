@@ -1,0 +1,62 @@
+# Query: localhost:3000
+# ContextLines: 1
+
+13 件の結果 - 6 ファイル
+
+frontend/src/axios.js:
+  4  const instance = axios.create({
+  5:   baseURL: '/api', // バックエンドのベースURLを設定
+  6    withCredentials: true, // クッキーを送信するために必要
+
+frontend/src/components/Favorites.vue:
+  55        try {
+  56:         const response = await axios.get('http://localhost:3000/api/favorites', { withCredentials: true });
+  57          if (response.data.status === 'success') {
+
+  75        try {
+  76:         const response = await axios.delete(`http://localhost:3000/api/favorites/${messageId}`, { withCredentials: true });
+  77          if (response.data.status === 'success') {
+
+frontend/src/components/Home.vue:
+  147            // お気に入り解除
+  148:           const response = await axios.delete(`http://localhost:3000/api/favorites/${messageId}`, { withCredentials: true });
+  149            if (response.data.status === 'success') {
+
+  156            // お気に入り追加
+  157:           const response = await axios.post('http://localhost:3000/api/favorites', { messageId }, { withCredentials: true });
+  158            if (response.data.status === 'success') {
+
+  183          const response = await axios.post(
+  184:           'http://localhost:3000/api/interpret-dream',
+  185            { dream: userMessage },
+
+  267        try {
+  268:         const response = await axios.post('http://localhost:3000/api/logout', {}, { withCredentials: true });
+  269          if (response.data.status === 'success') {
+
+frontend/src/components/MyPage.vue:
+  156          try {
+  157:           const response = await axios.get('http://localhost:3000/api/getUserData', {
+  158              withCredentials: true, // クッキーを含める
+
+  207            const response = await axios.post(
+  208:             'http://localhost:3000/api/updateUser',
+  209              {
+
+  251          try {
+  252:           const response = await axios.delete('http://localhost:3000/api/deleteAccount', {
+  253              withCredentials: true, // クッキーを含める
+
+frontend/src/components/PasswordChange.vue:
+  111            const response = await axios.post(
+  112:             'http://localhost:3000/api/changePassword',
+  113              {
+
+frontend/src/router/index.js:
+  102      try {
+  103:       const response = await axios.get('http://localhost:3000/api/checksession', { withCredentials: true });
+  104        if (response.data.loggedIn) {
+
+  115        try {
+  116:         const response = await axios.get('http://localhost:3000/api/checksession', { withCredentials: true });
+  117          if (response.data.loggedIn) {

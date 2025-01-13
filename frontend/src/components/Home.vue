@@ -67,7 +67,7 @@
 </template>
 
 <script>
-import axios from 'axios'; // 標準のaxiosを使用
+import axios from '@/axios'; // 標準のaxiosを使用
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
@@ -145,7 +145,7 @@ const fetchFavorites = async () => {
       try {
         if (messageItem.isFavorite) {
           // お気に入り解除
-          const response = await axios.delete(`http://localhost:3000/api/favorites/${messageId}`, { withCredentials: true });
+          const response = await axios.delete(`/favorites/${messageId}`, { withCredentials: true });
           if (response.data.status === 'success') {
             messageItem.isFavorite = false;
             toast.success('お気に入りから解除しました。');
@@ -154,7 +154,7 @@ const fetchFavorites = async () => {
           }
         } else {
           // お気に入り追加
-          const response = await axios.post('http://localhost:3000/api/favorites', { messageId }, { withCredentials: true });
+          const response = await axios.post('/api/favorites', { messageId }, { withCredentials: true });
           if (response.data.status === 'success') {
             messageItem.isFavorite = true;
             toast.success('お気に入りに追加しました。');
@@ -181,7 +181,7 @@ const fetchFavorites = async () => {
 
       try {
         const response = await axios.post(
-          'http://localhost:3000/api/interpret-dream',
+          '/interpret-dream',
           { dream: userMessage },
           {
             headers: {
@@ -265,7 +265,7 @@ const fetchFavorites = async () => {
      */
     const logout = async () => {
       try {
-        const response = await axios.post('http://localhost:3000/api/logout', {}, { withCredentials: true });
+        const response = await axios.post('/logout', {}, { withCredentials: true });
         if (response.data.status === 'success') {
           isLoggedIn.value = false;
           toast.success('ログアウトしました。');

@@ -13,7 +13,7 @@ import DeleteComplete from '@/components/DeleteComplete.vue';
 import PasswordResetRequest from '@/components/PasswordResetRequest.vue'; 
 import PasswordReset from '@/components/PasswordReset.vue';
 import Favorites from '@/components/Favorites.vue';
-import axios from '../axios';
+import axios from '../@/axios';
 
 const routes = [
   {
@@ -100,7 +100,7 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   if (to.matched.some(record => record.meta.requiresAuth)) {
     try {
-      const response = await axios.get('http://localhost:3000/api/checksession', { withCredentials: true });
+      const response = await axios.get('/checksession', { withCredentials: true });
       if (response.data.loggedIn) {
         next();
       } else {
@@ -113,7 +113,7 @@ router.beforeEach(async (to, from, next) => {
   } else {
     if (to.path === '/login' || to.path === '/register') {
       try {
-        const response = await axios.get('http://localhost:3000/api/checksession', { withCredentials: true });
+        const response = await axios.get('/checksession', { withCredentials: true });
         if (response.data.loggedIn) {
           next('/home');
         } else {

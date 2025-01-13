@@ -34,7 +34,7 @@
 </template>
 
 <script>
-import axios from 'axios'; // 標準のaxiosを使用
+import axios from '@/axios'; // 標準のaxiosを使用
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
@@ -53,7 +53,7 @@ export default {
     const fetchFavorites = async () => {
       isLoading.value = true;
       try {
-        const response = await axios.get('http://localhost:3000/api/favorites', { withCredentials: true });
+        const response = await axios.get('/favorites', { withCredentials: true });
         if (response.data.status === 'success') {
           favorites.value = response.data.favorites;
         } else {
@@ -73,7 +73,7 @@ export default {
      */
     const removeFavorite = async (messageId) => {
       try {
-        const response = await axios.delete(`http://localhost:3000/api/favorites/${messageId}`, { withCredentials: true });
+        const response = await axios.delete(`/favorites/${messageId}`, { withCredentials: true });
         if (response.data.status === 'success') {
           favorites.value = favorites.value.filter(item => item.id !== messageId);
           toast.success('お気に入りから解除しました。');
