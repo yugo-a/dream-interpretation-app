@@ -13,7 +13,7 @@ import DeleteComplete from '@/components/DeleteComplete.vue';
 import PasswordResetRequest from '@/components/PasswordResetRequest.vue'; 
 import PasswordReset from '@/components/PasswordReset.vue';
 import Favorites from '@/components/Favorites.vue';
-import axios from '../@/axios';
+import axios from '@/axios';
 
 const routes = [
   {
