@@ -15,6 +15,26 @@ dotenv.config();
 
 const app = express();
 
+// 簡易的にユーザー名/パスワードを決め打ち
+const USERNAME = process.env.BASIC_USER || 'user';
+const PASSWORD = process.env.BASIC_PASS || 'secret';
+
+function basicAuthMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  const base64Credentials = authHeader.split(' ')[1] || '';
+  const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+  const [username, password] = credentials.split(':');
+
+  if (username === USERNAME && password === PASSWORD) {
+    return next();
+  }
+  res.set('WWW-Authenticate', 'Basic realm="Restricted"');
+  return res.status(401).send('Authentication required.');
+}
+
+// 全ルートにかける場合は use() で先に書く
+app.use(basicAuthMiddleware);
+
 // Nodemailerのtransporter設定
 const transporter = nodemailer.createTransport({
   service: 'gmail',
