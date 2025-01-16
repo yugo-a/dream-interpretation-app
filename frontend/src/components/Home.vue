@@ -310,7 +310,9 @@ const fetchFavorites = async () => {
   padding: 20px;
   font-family: Arial, sans-serif;
 }
-
+* {
+  box-sizing: border-box;
+}
 header {
   text-align: left;
   margin-bottom: 20px;
@@ -471,5 +473,67 @@ button:hover {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* ▼▼▼ スマホ向けのメディアクエリ例 ▼▼▼ */
+@media (max-width: 600px) {
+  /* 全体のパディングや最大幅を調整 */
+  .home {
+    max-width: 100%;
+    padding: 10px;
+  }
+
+  /* ヘッダー部分 */
+  header {
+    margin-bottom: 10px;
+  }
+
+  /* 「認証ボタン」を縦方向に並べる例 */
+  .auth-buttons {
+    position: static; /* 絶対配置をやめる */
+    display: flex;
+    flex-direction: column; /* 縦並びに */
+    gap: 10px;
+    align-items: flex-start; /* 左寄せ */
+  }
+
+  /* ボタン幅を全て100%にして統一 */
+  .auth-buttons button,
+  .chat-input input[type='text'],
+  .chat-input button {
+    width: 100%;
+  }
+
+  /* ボタンのサイズや文字サイズを小さめに */
+  .auth-buttons button {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  /* チャットコンテナを幅100%に */
+  .chat-container {
+    margin-top: 10px;
+    padding: 10px;
+  }
+
+  /* チャット履歴を高さ再調整 */
+  .chat-history {
+    height: 200px; /* 300px -> 200px とかに */
+  }
+
+  /* inputとボタンが横並びだと狭いので縦並びにする */
+  .chat-input {
+    flex-direction: column; 
+    gap: 10px;
+  }
+
+  /* input幅を100% */
+  .chat-input input[type='text'] {
+    width: 100%;
+  }
+
+  .clear-button {
+    width: 100%;
+  }
 }
 </style>

@@ -9,6 +9,7 @@ const axios = require('axios');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const path = require('path');
+const { Pool } = require('pg');
 
 // 環境変数の読み込みを最初に行う
 dotenv.config();
@@ -43,6 +44,15 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASSWORD
   }
 });
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+});
+
+module.exports = pool;
 
 /* ================================
    ▼▼▼ DB接続部分をコメントアウト ▼▼▼
