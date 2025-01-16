@@ -10,6 +10,7 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const path = require('path');
 const { Pool } = require('pg');
+const pool = require('./db'); 
 
 // 環境変数の読み込みを最初に行う
 dotenv.config();
@@ -134,6 +135,84 @@ app.options('*', cors(corsOptions));
 
 // express で JSON ボディをパース
 app.use(express.json());
+
+// 1. テーブル作成用エンドポイント
+app.get('/init', async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL,
+        email TEXT NOT NULL,
+        password TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    res.send('Table "users" created (if not exists).');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error creating table');
+  }
+});
+
+// 2. CREATE (ユーザー追加)
+app.post('/users', async (req, res) => {
+  const { username, email, password } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO users (username, email, password)
+       VALUES ($1, $2, $3)
+       RETURNING *;`,
+      [username, email, password]
+    );
+    res.json({ status: 'success', user: result.rows[0] });
+  } catch (err) {
+    console.error('Error inserting user:', err);
+    res.status(500).json({ status: 'error', message: 'DB insert error' });
+  }
+});
+
+// 3. READ (ユーザー一覧)
+app.get('/users', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM users;');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ status: 'error', message: 'DB fetch error' });
+  }
+});
+
+// 4. UPDATE (ユーザー情報更新)
+app.put('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { username, email } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE users
+       SET username = $1, email = $2
+       WHERE id = $3
+       RETURNING *;`,
+      [username, email, id]
+    );
+    res.json({ status: 'success', user: result.rows[0] });
+  } catch (err) {
+    console.error('Error updating user:', err);
+    res.status(500).json({ status: 'error', message: 'DB update error' });
+  }
+});
+
+// 5. DELETE (ユーザー削除)
+app.delete('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query(`DELETE FROM users WHERE id = $1;`, [id]);
+    res.json({ status: 'success', message: `User ${id} deleted.` });
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    res.status(500).json({ status: 'error', message: 'DB delete error' });
+  }
+});
 
 // ログミドルウェア
 app.use((req, res, next) => {
