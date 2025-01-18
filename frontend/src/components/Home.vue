@@ -245,9 +245,6 @@ const fetchFavorites = async () => {
       }
     };
 
-    await axios.post('/api/interpret-dream', { dream: userMessage }, {
-  withCredentials: true,
-});
     /**
      * ログインページに遷移する関数
      */
