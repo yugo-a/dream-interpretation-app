@@ -17,7 +17,7 @@ const pool = require('./db');
 dotenv.config();
 
 const app = express();
-
+/*
 // 簡易的にユーザー名/パスワードを決め打ち (Basic認証)
 const USERNAME = process.env.BASIC_USER || 'user';
 const PASSWORD = process.env.BASIC_PASS || 'secret';
@@ -34,7 +34,7 @@ function basicAuthMiddleware(req, res, next) {
   res.set('WWW-Authenticate', 'Basic realm="Restricted"');
   return res.status(401).send('Authentication required.');
 }
-
+*/
 // 全ルートにかける場合は use() で先に書く
 app.use(basicAuthMiddleware);
 
