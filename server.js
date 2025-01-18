@@ -1,8 +1,9 @@
-// server.js
+/***********************************************
+ * server.js
+ ***********************************************/
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-// const mysql = require('mysql'); // ← DB未使用化のためコメントアウトでもOK
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const axios = require('axios');
@@ -10,18 +11,18 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const path = require('path');
 
-// ★ ここで db.js を読み込む
+// ★ ここで db.js を読み込む (PostgreSQL Pool)
 const pool = require('./db');
 
-// 環境変数の読み込みを最初に行う
+// .envファイルの読み込み
 dotenv.config();
 
 const app = express();
+
 /*
-// 簡易的にユーザー名/パスワードを決め打ち (Basic認証)
+// もしBasic認証が不要ならこの部分はコメントアウト
 const USERNAME = process.env.BASIC_USER || 'user';
 const PASSWORD = process.env.BASIC_PASS || 'secret';
-
 function basicAuthMiddleware(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const base64Credentials = authHeader.split(' ')[1] || '';
@@ -38,25 +39,26 @@ function basicAuthMiddleware(req, res, next) {
 // 全ルートにかける場合は use() で先に書く
 app.use(basicAuthMiddleware);
 */
+
 // Nodemailerのtransporter設定
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL,
-    pass: process.env.EMAIL_PASSWORD
+    user: process.env.EMAIL,          // Gmailアドレス
+    pass: process.env.EMAIL_PASSWORD  // Gmailパスワード(またはアプリパスワード)
   }
 });
 
-// セッションミドルウェアの設定
+// セッションの設定
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your_secret_key',
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: false } // 本番環境では true にし、HTTPSを使用する
+  cookie: { secure: false } // HTTPSを使う場合はtrueに
 }));
 
 /*
-// CORSの設定が必要な場合のみ有効化
+// CORS設定（必要な場合のみ）
 const corsOptions = {
   origin: 'http://localhost:8080',
   credentials: true,
@@ -66,10 +68,10 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 */
 
-// express で JSON ボディをパース
+// JSONボディパーサー
 app.use(express.json());
 
-// ログミドルウェア (最初に置いてもOK)
+// ログミドルウェア
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   console.log('Request Headers:', req.headers);
@@ -77,16 +79,15 @@ app.use((req, res, next) => {
   next();
 });
 
-/*
-  (以前あった「app.get('/') で 'API is running'」を
-   '/api' に変更し、トップパス('/') はフロントエンドへ委譲)
-*/
+// -------------------------------------------------
+// ヘルスチェック用 or 動作確認用
+// -------------------------------------------------
 app.get('/api', (req, res) => {
   console.log('GET request to /api');
   res.send('API is running');
 });
 
-// 認証ミドルウェアの作成（セッション）
+// 認証チェック用ミドルウェア（セッション版）
 function isAuthenticated(req, res, next) {
   if (req.session && req.session.user) {
     next();
@@ -98,8 +99,7 @@ function isAuthenticated(req, res, next) {
 /* =======================
    ▼▼▼ Postgres CRUD ▼▼▼
 ======================= */
-
-// テーブル作成用エンドポイント
+// テーブル作成用
 app.get('/init', async (req, res) => {
   try {
     await pool.query(`
@@ -118,7 +118,7 @@ app.get('/init', async (req, res) => {
   }
 });
 
-// CREATE (ユーザー追加)
+// CREATE (ユーザー新規登録)
 app.post('/users', async (req, res) => {
   const { username, email, password } = req.body;
   try {
@@ -182,24 +182,24 @@ app.delete('/users/:id', async (req, res) => {
 ============================= */
 
 /*
-  以下は "DB操作コメントアウト" していた既存エンドポイント。
-  まだMySQL用コードが残っているが、Postgresに移行するなら順次書き換えを。
+  以下はダミー版のAPIエンドポイント。
+  まだ実際のDB操作がない／あるいは簡易実装だけの場合
+  とりあえず用意している例。必要に応じて修正/削除OK。
 */
 
-// ユーザー登録 (ダミー)
+// ユーザー登録(ダミー)
 app.post('/api/register', (req, res) => {
-  // ...
   res.json({ status: 'success', message: '[DBなし] User registered (dummy response)' });
 });
 
-// ログイン (ダミー)
+// ログイン(ダミー)
 app.post('/api/login', (req, res) => {
-  // ...
   res.json({ status: 'success', message: '[DBなし] Login (dummy response)' });
 });
 
-// セッション確認 (ダミー)
+// セッション確認(ダミー)
 app.get('/api/checksession', (req, res) => {
+  // 実際は req.session.user をチェックする
   if (req.session.user) {
     res.json({ loggedIn: true, user: req.session.user });
   } else {
@@ -207,12 +207,40 @@ app.get('/api/checksession', (req, res) => {
   }
 });
 
-// ... 他のダミーエンドポイントも同様 ...
 
-// 静的ファイルの提供
+/********************************************************************
+ *  ここが重要: フロントエンドが呼び出している 「/interpret-dream」 の実装
+ *  
+ *  Home.vue から:
+ *    axios.post('/interpret-dream', { dream: userMessage })
+ *  のリクエストを受けて、夢の解釈（AI処理 or ダミー応答）を行ってレスポンス
+ ********************************************************************/
+app.post('/interpret-dream', async (req, res) => {
+  try {
+    const { dream } = req.body;
+    // ここでAI APIを呼び出すなどの処理を入れる
+    // 今はダミーの解釈結果を返す例
+    const interpretation = `あなたの夢の内容は: "${dream}". 特徴：... (ダミー解釈)`;
+
+    return res.json({
+      success: true,
+      interpretation,        // フロントで msg.text として表示
+      interactionId: Date.now(), // メッセージのIDに使うなど
+    });
+  } catch (error) {
+    console.error('Error in /interpret-dream:', error);
+    return res.status(500).json({
+      success: false,
+      message: '解釈処理中にエラーが発生しました',
+    });
+  }
+});
+
+
+// 静的ファイル(ビルド済みVue)の提供
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
-// シングルページアプリ想定で、すべてのパスに対して index.html を返す
+// シングルページアプリのエントリポイント
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/dist', 'index.html'));
 });
