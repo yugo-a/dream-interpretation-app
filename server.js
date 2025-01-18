@@ -236,6 +236,15 @@ app.post('/interpret-dream', async (req, res) => {
   }
 });
 
+app.post('/api/interpret-dream', (req, res) => {
+  const { dream } = req.body;
+  // 解析やAI呼び出し等の処理
+  return res.json({
+    success: true,
+    interpretation: `AI解析結果: ${dream}`,
+    interactionId: Date.now()
+  });
+});
 
 // 静的ファイル(ビルド済みVue)の提供
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
