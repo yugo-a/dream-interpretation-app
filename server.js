@@ -34,10 +34,10 @@ function basicAuthMiddleware(req, res, next) {
   res.set('WWW-Authenticate', 'Basic realm="Restricted"');
   return res.status(401).send('Authentication required.');
 }
-*/
+
 // 全ルートにかける場合は use() で先に書く
 app.use(basicAuthMiddleware);
-
+*/
 // Nodemailerのtransporter設定
 const transporter = nodemailer.createTransport({
   service: 'gmail',
