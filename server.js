@@ -11,36 +11,27 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const path = require('path');
 
-// ★ ここで db.js を読み込む (PostgreSQL Pool)
+// ★ PostgreSQL Pool
 const pool = require('./db');
 
-// .envファイルの読み込み
+// OpenAI用
+const { Configuration, OpenAIApi } = require('openai');
+
 dotenv.config();
 
 const app = express();
 
 /*
-// もしBasic認証が不要ならこの部分はコメントアウト
+// Basic認証を使わないならこの部分はコメントアウトのまま
 const USERNAME = process.env.BASIC_USER || 'user';
 const PASSWORD = process.env.BASIC_PASS || 'secret';
 function basicAuthMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization || '';
-  const base64Credentials = authHeader.split(' ')[1] || '';
-  const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
-  const [username, password] = credentials.split(':');
-
-  if (username === USERNAME && password === PASSWORD) {
-    return next();
-  }
-  res.set('WWW-Authenticate', 'Basic realm="Restricted"');
-  return res.status(401).send('Authentication required.');
+  // ...
 }
-
-// 全ルートにかける場合は use() で先に書く
 app.use(basicAuthMiddleware);
 */
 
-// Nodemailerのtransporter設定
+// Nodemailer設定
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -49,12 +40,12 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// セッションの設定
+// セッション設定
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your_secret_key',
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: false } // HTTPSを使う場合はtrueに
+  cookie: { secure: false }
 }));
 
 /*
@@ -68,10 +59,9 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 */
 
-// JSONボディパーサー
 app.use(express.json());
 
-// ログミドルウェア
+// ログミドルウェア (任意)
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   console.log('Request Headers:', req.headers);
@@ -79,15 +69,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// -------------------------------------------------
-// ヘルスチェック用 or 動作確認用
-// -------------------------------------------------
+// API動作確認用
 app.get('/api', (req, res) => {
   console.log('GET request to /api');
   res.send('API is running');
 });
 
-// 認証チェック用ミドルウェア（セッション版）
+// 認証チェックミドルウェア例
 function isAuthenticated(req, res, next) {
   if (req.session && req.session.user) {
     next();
@@ -99,7 +87,7 @@ function isAuthenticated(req, res, next) {
 /* =======================
    ▼▼▼ Postgres CRUD ▼▼▼
 ======================= */
-// テーブル作成用
+
 app.get('/init', async (req, res) => {
   try {
     await pool.query(`
@@ -118,7 +106,6 @@ app.get('/init', async (req, res) => {
   }
 });
 
-// CREATE (ユーザー新規登録)
 app.post('/users', async (req, res) => {
   const { username, email, password } = req.body;
   try {
@@ -135,7 +122,6 @@ app.post('/users', async (req, res) => {
   }
 });
 
-// READ (ユーザー一覧)
 app.get('/users', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM users;');
@@ -146,7 +132,6 @@ app.get('/users', async (req, res) => {
   }
 });
 
-// UPDATE (ユーザー情報更新)
 app.put('/users/:id', async (req, res) => {
   const { id } = req.params;
   const { username, email } = req.body;
@@ -165,7 +150,6 @@ app.put('/users/:id', async (req, res) => {
   }
 });
 
-// DELETE (ユーザー削除)
 app.delete('/users/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -181,25 +165,14 @@ app.delete('/users/:id', async (req, res) => {
    ▼▼▼ ここまでPostgres CRUD ▼▼▼
 ============================= */
 
-/*
-  以下はダミー版のAPIエンドポイント。
-  まだ実際のDB操作がない／あるいは簡易実装だけの場合
-  とりあえず用意している例。必要に応じて修正/削除OK。
-*/
-
-// ユーザー登録(ダミー)
+// ダミーAPI例 (必要に応じて残すor削除)
 app.post('/api/register', (req, res) => {
   res.json({ status: 'success', message: '[DBなし] User registered (dummy response)' });
 });
-
-// ログイン(ダミー)
 app.post('/api/login', (req, res) => {
   res.json({ status: 'success', message: '[DBなし] Login (dummy response)' });
 });
-
-// セッション確認(ダミー)
 app.get('/api/checksession', (req, res) => {
-  // 実際は req.session.user をチェックする
   if (req.session.user) {
     res.json({ loggedIn: true, user: req.session.user });
   } else {
@@ -207,49 +180,74 @@ app.get('/api/checksession', (req, res) => {
   }
 });
 
+// ======== ここからAI解析の実装 ========
 
-/********************************************************************
- *  ここが重要: フロントエンドが呼び出している 「/interpret-dream」 の実装
- *  
- *  Home.vue から:
- *    axios.post('/interpret-dream', { dream: userMessage })
- *  のリクエストを受けて、夢の解釈（AI処理 or ダミー応答）を行ってレスポンス
- ********************************************************************/
+// OpenAI 初期化
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,  // .envにセットしたAPIキー
+});
+const openai = new OpenAIApi(configuration);
+
+/**
+ * フロント: axios.post('/interpret-dream', { dream: '...' })
+ */
 app.post('/interpret-dream', async (req, res) => {
   try {
     const { dream } = req.body;
-    // ここでAI APIを呼び出すなどの処理を入れる
-    // 今はダミーの解釈結果を返す例
-    const interpretation = `あなたの夢の内容は: "${dream}". 特徴：... (ダミー解釈)`;
+    if (!dream) {
+      return res.status(400).json({
+        success: false,
+        message: '夢の内容 (dream) がありません。',
+      });
+    }
+
+    // ChatGPTなどで解析する例
+    const aiResponse = await openai.createChatCompletion({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        {
+          role: 'system',
+          content: 'あなたは夢を解釈するアシスタントです。ユーザーの夢の内容に対して簡潔に意味を説明してください。'
+        },
+        {
+          role: 'user',
+          content: `ユーザーの夢内容:\n${dream}\nこの夢の意味を教えて。`
+        }
+      ],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    const interpretation = aiResponse.data.choices[0].message.content.trim();
 
     return res.json({
       success: true,
-      interpretation,        // フロントで msg.text として表示
-      interactionId: Date.now(), // メッセージのIDに使うなど
+      interpretation,        // フロントでmsg.textとして表示
+      interactionId: Date.now(),
     });
   } catch (error) {
     console.error('Error in /interpret-dream:', error);
     return res.status(500).json({
       success: false,
-      message: '解釈処理中にエラーが発生しました',
+      message: 'AI解釈中にエラーが発生しました。',
     });
   }
 });
 
-app.post('/api/interpret-dream', (req, res) => {
-  const { dream } = req.body;
-  // 解析やAI呼び出し等の処理
-  return res.json({
-    success: true,
-    interpretation: `AI解析結果: ${dream}`,
-    interactionId: Date.now()
-  });
-});
+/* 
+   app.post('/api/interpret-dream', ...) 
+   ↑ 不要なら削除してください
+   もしフロントが '/api/interpret-dream' にアクセスするなら 
+   下記のように同じ処理を書く or ルートを統一する
+*/
+// app.post('/api/interpret-dream', async (req, res) => {
+//   // 同じ内容をここに書くか、上のエンドポイントを使うか決める
+// });
 
-// 静的ファイル(ビルド済みVue)の提供
+// 静的ファイルの提供 (Vueビルド済み)
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
-// シングルページアプリのエントリポイント
+// SPA用 catch-allルート
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/dist', 'index.html'));
 });
