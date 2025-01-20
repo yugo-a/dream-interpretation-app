@@ -1,6 +1,7 @@
 {
   "name": "20240605",
   "version": "1.0.0",
+  "type": "module",
   "description": "* Version: 1.9 [under development] * [Website](https://fuelphp.com/) * [Release Documentation](https://fuelphp.com/docs) * [Release API browser](https://fuelphp.com/api) * [Development branch Documentation](https://fuelphp.com/dev-docs) * [Development branch API browser](https://fuelphp.com/dev-api) * [Support Forum](https://forums.fuelphp.com) for comments, discussion and community support",
   "main": "index.js",
   "scripts": {
@@ -22,7 +23,7 @@
     "express-session": "^1.18.0",
     "mysql": "^2.18.1",
     "nodemailer": "^6.9.14",
-    "openai": "^4.79.1",
+    "openai": "^3.2.1",
     "pg": "^8.13.1"
   },
   "devDependencies": {

@@ -1,42 +1,41 @@
 /***********************************************
  * server.js
  ***********************************************/
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const bcrypt = require('bcrypt');
-const session = require('express-session');
-const axios = require('axios');
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
-const path = require('path');
 
-// ★ PostgreSQL Pool
-const pool = require('./db');
+// ESM形式のモジュール読み込み
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import bcrypt from 'bcrypt';
+import session from 'express-session';
+import axios from 'axios';
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
-// OpenAI用
-const { Configuration, OpenAIApi } = require('openai');
+import pool from './db.js';
 
 dotenv.config();
 
 const app = express();
 
-/*
-// Basic認証を使わないならこの部分はコメントアウトのまま
-const USERNAME = process.env.BASIC_USER || 'user';
-const PASSWORD = process.env.BASIC_PASS || 'secret';
-function basicAuthMiddleware(req, res, next) {
-  // ...
-}
-app.use(basicAuthMiddleware);
-*/
+// __dirname と __filename の代替を設定（ESMではこれらは未定義）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// CommonJS モジュールを require で読み込むための準備
+const require = createRequire(import.meta.url);
+// OpenAI ライブラリを CommonJS スタイルでインポート
+const { Configuration, OpenAIApi } = require('openai');
 
 // Nodemailer設定
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL,          // Gmailアドレス
-    pass: process.env.EMAIL_PASSWORD  // Gmailパスワード(またはアプリパスワード)
+    user: process.env.EMAIL,          
+    pass: process.env.EMAIL_PASSWORD  
   }
 });
 
@@ -47,17 +46,6 @@ app.use(session({
   saveUninitialized: true,
   cookie: { secure: false }
 }));
-
-/*
-// CORS設定（必要な場合のみ）
-const corsOptions = {
-  origin: 'http://localhost:8080',
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-*/
 
 app.use(express.json());
 
@@ -165,7 +153,6 @@ app.delete('/users/:id', async (req, res) => {
    ▼▼▼ ここまでPostgres CRUD ▼▼▼
 ============================= */
 
-// ダミーAPI例 (必要に応じて残すor削除)
 app.post('/api/register', (req, res) => {
   res.json({ status: 'success', message: '[DBなし] User registered (dummy response)' });
 });
@@ -184,13 +171,10 @@ app.get('/api/checksession', (req, res) => {
 
 // OpenAI 初期化
 const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,  // .envにセットしたAPIキー
+  apiKey: process.env.OPENAI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
 
-/**
- * フロント: axios.post('/interpret-dream', { dream: '...' })
- */
 app.post('/interpret-dream', async (req, res) => {
   try {
     const { dream } = req.body;
@@ -201,7 +185,6 @@ app.post('/interpret-dream', async (req, res) => {
       });
     }
 
-    // ChatGPTなどで解析する例
     const aiResponse = await openai.createChatCompletion({
       model: 'gpt-3.5-turbo',
       messages: [
@@ -222,7 +205,7 @@ app.post('/interpret-dream', async (req, res) => {
 
     return res.json({
       success: true,
-      interpretation,        // フロントでmsg.textとして表示
+      interpretation,
       interactionId: Date.now(),
     });
   } catch (error) {
@@ -234,25 +217,12 @@ app.post('/interpret-dream', async (req, res) => {
   }
 });
 
-/* 
-   app.post('/api/interpret-dream', ...) 
-   ↑ 不要なら削除してください
-   もしフロントが '/api/interpret-dream' にアクセスするなら 
-   下記のように同じ処理を書く or ルートを統一する
-*/
-// app.post('/api/interpret-dream', async (req, res) => {
-//   // 同じ内容をここに書くか、上のエンドポイントを使うか決める
-// });
-
-// 静的ファイルの提供 (Vueビルド済み)
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
-// SPA用 catch-allルート
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/dist', 'index.html'));
 });
 
-// サーバ起動
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
