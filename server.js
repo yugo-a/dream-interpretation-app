@@ -170,9 +170,44 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.post('/api/login', (req, res) => {
-  res.json({ status: 'success', message: '[DBなし] Login (dummy response)' });
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  
+  try {
+    // ユーザー名に一致するユーザーをデータベースから取得
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    
+    if (result.rowCount === 0) {
+      // ユーザーが見つからない場合
+      return res.status(401).json({ status: 'error', message: 'ユーザー名またはパスワードが正しくありません。' });
+    }
+    
+    const user = result.rows[0];
+    
+    // データベースに保存されているハッシュ化されたパスワードと比較
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
+      // パスワードが一致しない場合
+      return res.status(401).json({ status: 'error', message: 'ユーザー名またはパスワードが正しくありません。' });
+    }
+    
+    // ログイン成功時にセッションを設定
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      role: user.role || 'user'  // 管理者機能等を扱う場合、roleも含める
+    };
+    
+    // 成功レスポンスを返す
+    res.json({ status: 'success', message: 'ログインに成功しました。', user: { id: user.id, username: user.username } });
+    
+  } catch (err) {
+    console.error('ログインエラー:', err);
+    res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+  }
 });
+
 app.get('/api/checksession', (req, res) => {
   if (req.session.user) {
     res.json({ loggedIn: true, user: req.session.user });
