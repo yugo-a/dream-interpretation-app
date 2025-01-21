@@ -60,7 +60,7 @@
   
         try {
           const response = await axios.post(
-            'http://localhost:3000/api/login',
+            '/login',
             {
               username: username.value,
               password: password.value,
