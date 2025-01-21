@@ -153,9 +153,23 @@ app.delete('/users/:id', async (req, res) => {
    ▼▼▼ ここまでPostgres CRUD ▼▼▼
 ============================= */
 
-app.post('/api/register', (req, res) => {
-  res.json({ status: 'success', message: '[DBなし] User registered (dummy response)' });
+app.post('/api/register', async (req, res) => {
+  const { username, email, password } = req.body;
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);  // パスワードをハッシュ化
+    const result = await pool.query(
+      `INSERT INTO users (username, email, password)
+       VALUES ($1, $2, $3)
+       RETURNING *;`,
+      [username, email, hashedPassword]
+    );
+    res.json({ status: 'success', user: result.rows[0] });
+  } catch (err) {
+    console.error('Error inserting user:', err);
+    res.status(500).json({ status: 'error', message: 'DB insert error' });
+  }
 });
+
 app.post('/api/login', (req, res) => {
   res.json({ status: 'success', message: '[DBなし] Login (dummy response)' });
 });
