@@ -60,7 +60,7 @@
   
         try {
           const response = await axios.post(
-            '/login',
+            '/api/login',
             {
               username: username.value,
               password: password.value,
@@ -71,8 +71,7 @@
               },
               withCredentials: true, // クッキーを含める
             }
-          );
-  
+          );  
           if (response.data.status === 'success') {
             // ログイン成功
             alert('ログインに成功しました。');
