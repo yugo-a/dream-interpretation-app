@@ -43,11 +43,17 @@ const transporter = nodemailer.createTransport({
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your_secret_key',
   resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false }
+  saveUninitialized: false, // 初期化されていないセッションは保存しない
+  cookie: { secure: false } // HTTPS を使用する場合は true に設定
 }));
 
 app.use(express.json());
+
+// CORS設定（必要に応じて調整）
+app.use(cors({
+  origin: 'http://localhost:8080', // フロントエンドのURLに置き換えてください
+  credentials: true, // クッキーを含める
+}));
 
 // ログミドルウェア (任意)
 app.use((req, res, next) => {
@@ -81,8 +87,8 @@ app.get('/init', async (req, res) => {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
-        username TEXT NOT NULL,
-        email TEXT NOT NULL,
+        username TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       );
@@ -97,11 +103,12 @@ app.get('/init', async (req, res) => {
 app.post('/users', async (req, res) => {
   const { username, email, password } = req.body;
   try {
+    const hashedPassword = await bcrypt.hash(password, 10); // パスワードをハッシュ化
     const result = await pool.query(
       `INSERT INTO users (username, email, password)
        VALUES ($1, $2, $3)
        RETURNING *;`,
-      [username, email, password]
+      [username, email, hashedPassword]
     );
     res.json({ status: 'success', user: result.rows[0] });
   } catch (err) {
@@ -153,6 +160,9 @@ app.delete('/users/:id', async (req, res) => {
    ▼▼▼ ここまでPostgres CRUD ▼▼▼
 ============================= */
 
+/**
+ * 会員登録エンドポイント
+ */
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
   try {
@@ -170,6 +180,9 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+/**
+ * ログインエンドポイント
+ */
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   
@@ -208,6 +221,23 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+/**
+ * ログアウトエンドポイント
+ */
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      console.error('セッション破棄エラー:', err);
+      return res.status(500).json({ status: 'error', message: 'ログアウトに失敗しました。' });
+    }
+    res.clearCookie('connect.sid'); // セッションIDクッキーのクリア
+    res.json({ status: 'success', message: 'ログアウトしました。' });
+  });
+});
+
+/**
+ * セッション確認エンドポイント
+ */
 app.get('/api/checksession', (req, res) => {
   if (req.session.user) {
     res.json({ loggedIn: true, user: req.session.user });
@@ -266,6 +296,7 @@ app.post('/interpret-dream', async (req, res) => {
   }
 });
 
+// 静的ファイルの提供
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
 app.get('*', (req, res) => {

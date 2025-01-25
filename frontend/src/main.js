@@ -2,15 +2,18 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
+import { createPinia } from 'pinia';
 import axios from './axios'; // カスタムAxiosインスタンスをインポート
 import Toast, { POSITION } from 'vue-toastification';
 import 'vue-toastification/dist/index.css'; // スタイルシートのインポート
 
 const app = createApp(App);
+const pinia = createPinia();
 
 // グローバルプロパティとしてAxiosを設定（オプション）
 app.config.globalProperties.$axios = axios;
 
+app.use(pinia);
 app.use(router);
 app.use(Toast, {
   // オプションを必要に応じて設定

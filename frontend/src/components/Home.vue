@@ -68,20 +68,24 @@
 
 <script>
 import axios from '@/axios'; // 標準のaxiosを使用
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
+import { useAuthStore } from '@/stores/auth';
 
 export default {
   name: 'Home',
   setup() {
     const message = ref('');
     const chatHistory = ref([]);
-    const isLoggedIn = ref(false);
     const isLoading = ref(false);
     const chatHistoryDiv = ref(null);
     const router = useRouter();
     const toast = useToast();
+    const authStore = useAuthStore();
+
+    // Pinia ストアからログイン状態を取得
+    const isLoggedIn = computed(() => authStore.isLoggedIn);
 
     /**
      * テキストをエスケープする関数（XSS対策）
@@ -89,45 +93,42 @@ export default {
     const escapeHTML = (str) =>
       str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-// 相対パスに変更した例
-
-/**
- * ログイン状態を確認する関数
- */
- const checkLoginStatus = async () => {
-  try {
-    const response = await axios.get('/api/checksession', { withCredentials: true });
-    isLoggedIn.value = response.data.loggedIn;
-    if (isLoggedIn.value) {
-      await fetchFavorites();
-    }
-  } catch (error) {
-    console.error('ログイン状態確認エラー:', error);
-  }
-};
-
-/**
- * ユーザーのお気に入りアイテムを取得する関数
- */
-const fetchFavorites = async () => {
-  try {
-    const response = await axios.get('/api/favorites', { withCredentials: true });
-    if (response.data.status === 'success') {
-      const favoriteIds = response.data.favorites.map(fav => fav.message_id);
-      // チャット履歴の各メッセージにお気に入り状態を設定
-      chatHistory.value.forEach(msg => {
-        if (msg.type === 'bot') {
-          msg.isFavorite = favoriteIds.includes(msg.id);
+    /**
+     * ログイン状態を確認する関数
+     */
+    const checkLoginStatus = async () => {
+      try {
+        await authStore.checkLoginStatus();
+        if (authStore.isLoggedIn) {
+          await fetchFavorites();
         }
-      });
-    } else {
-      toast.error(response.data.message || 'お気に入りの取得に失敗しました。');
-    }
-  } catch (error) {
-    console.error('お気に入り取得エラー:', error);
-    toast.error('サーバーエラーが発生しました。');
-  }
-};
+      } catch (error) {
+        console.error('ログイン状態確認エラー:', error);
+      }
+    };
+
+    /**
+     * ユーザーのお気に入りアイテムを取得する関数
+     */
+    const fetchFavorites = async () => {
+      try {
+        const response = await axios.get('/api/favorites', { withCredentials: true });
+        if (response.data.status === 'success') {
+          const favoriteIds = response.data.favorites.map(fav => fav.message_id);
+          // チャット履歴の各メッセージにお気に入り状態を設定
+          chatHistory.value.forEach(msg => {
+            if (msg.type === 'bot') {
+              msg.isFavorite = favoriteIds.includes(msg.id);
+            }
+          });
+        } else {
+          toast.error(response.data.message || 'お気に入りの取得に失敗しました。');
+        }
+      } catch (error) {
+        console.error('お気に入り取得エラー:', error);
+        toast.error('サーバーエラーが発生しました。');
+      }
+    };
 
     /**
      * お気に入りを追加・解除する関数
@@ -145,7 +146,7 @@ const fetchFavorites = async () => {
       try {
         if (messageItem.isFavorite) {
           // お気に入り解除
-          const response = await axios.delete(`/favorites/${messageId}`, { withCredentials: true });
+          const response = await axios.delete(`/api/favorites/${messageId}`, { withCredentials: true });
           if (response.data.status === 'success') {
             messageItem.isFavorite = false;
             toast.success('お気に入りから解除しました。');
@@ -265,15 +266,10 @@ const fetchFavorites = async () => {
      */
     const logout = async () => {
       try {
-        const response = await axios.post('/logout', {}, { withCredentials: true });
-        if (response.data.status === 'success') {
-          isLoggedIn.value = false;
-          toast.success('ログアウトしました。');
-          clearMessages();
-          router.push('/');
-        } else {
-          toast.error('ログアウトに失敗しました。');
-        }
+        await authStore.logout();
+        toast.success('ログアウトしました。');
+        clearMessages();
+        router.push('/');
       } catch (error) {
         console.error('Error logging out:', error);
         toast.error('ログアウト中にエラーが発生しました。');
