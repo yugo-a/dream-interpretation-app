@@ -3,6 +3,9 @@
   <div class="mypage-container">
     <h2>マイページ</h2>
     
+    <!-- ユーザー名の表示 -->
+    <h3>こんにちは、{{ user.username }}さん！</h3>
+    
     <!-- ローディングインジケーター -->
     <div v-if="isLoading" class="loading-spinner">
       データを読み込み中...
@@ -15,139 +18,15 @@
     
     <!-- コンテンツがロードされ、エラーがない場合に表示 -->
     <div v-if="!isLoading && !errorMessage">
-      
       <!-- プロフィール編集フォーム -->
-      <form @submit.prevent="handleUpdate">
-        <div class="form-group">
-          <label for="username">ユーザー名</label>
-          <input
-            type="text"
-            id="username"
-            v-model="username"
-            placeholder="ユーザー名を入力してください"
-            required
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="email">メールアドレス</label>
-          <input
-            type="email"
-            id="email"
-            v-model="email"
-            placeholder="メールアドレスを入力してください"
-            required
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="age">年齢</label>
-          <input
-            type="number"
-            id="age"
-            v-model="age"
-            placeholder="年齢を入力してください"
-            min="0"
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="gender">性別</label>
-          <select id="gender" v-model="gender" required>
-            <option disabled value="">選択してください</option>
-            <option value="男性">男性</option>
-            <option value="女性">女性</option>
-            <option value="その他">その他</option>
-          </select>
-        </div>
-        
-        <!-- 他のプロフィール項目（例: ストレスレベル、夢のテーマなど） -->
-        <div class="form-group">
-          <label for="stress">ストレスレベル</label>
-          <select id="stress" v-model="stress">
-            <option disabled value="">選択してください</option>
-            <option value="低">低</option>
-            <option value="中">中</option>
-            <option value="高">高</option>
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label for="dreamTheme">夢のテーマ</label>
-          <input
-            type="text"
-            id="dreamTheme"
-            v-model="dreamTheme"
-            placeholder="夢のテーマを入力してください"
-          />
-        </div>
-        
-        <!-- 更新エラーメッセージ -->
-        <div v-if="updateErrorMessage" class="error-message">
-          {{ updateErrorMessage }}
-        </div>
-        
-        <!-- プロフィール更新ボタン -->
-        <button type="submit" class="btn btn-primary" :disabled="isUpdating">
-          プロフィール変更
-        </button>
-        
-        <!-- プロフィール更新中のローディングインジケーター -->
-        <div v-if="isUpdating" class="loading-spinner">
-          更新中...
-        </div>
-      </form>
-      
-      <!-- ナビゲーションリンク（ホーム、お気に入り） -->
-      <div class="navigation-links">
-        <router-link to="/home" class="nav-link">
-          <button class="btn btn-secondary">ホームへ戻る</button>
-        </router-link>
-        
-        <router-link to="/favorites" class="nav-link">
-          <button class="btn btn-secondary">お気に入り一覧</button>
-        </router-link>
-      </div>
-      
-      <!-- パスワード変更へのリンクボタン -->
-      <div class="password-change-section">
-        <router-link to="/change-password" class="nav-link">
-          <button class="btn btn-secondary">パスワード変更</button>
-        </router-link>
-      </div>
-      
-      <!-- 退会ボタン -->
-      <div class="account-deletion-section">
-        <h3>アカウント削除</h3>
-        <button @click="confirmDeleteAccount" class="btn btn-danger">
-          退会
-        </button>
-        
-        <!-- 退会確認ダイアログ -->
-        <div v-if="showDeleteConfirmation" class="confirmation-dialog">
-          <p>本当にアカウントを削除しますか？この操作は取り消せません。</p>
-          <button @click="handleDeleteAccount" class="btn btn-danger confirm-button">はい、削除します</button>
-          <button @click="cancelDeleteAccount" class="btn btn-secondary cancel-button">キャンセル</button>
-        </div>
-        
-        <!-- 退会エラーメッセージ -->
-        <div v-if="deleteErrorMessage" class="error-message">
-          {{ deleteErrorMessage }}
-        </div>
-      </div>
-      
-      <!-- 成功メッセージ -->
-      <div v-if="successMessage" class="success-message">
-        {{ successMessage }}
-      </div>
-      
+      <!-- （既存のフォームコード） -->
     </div>
   </div>
 </template>
 
 <script>
 import axios from '@/axios';
-import { ref, onMounted } from 'vue'; // 'computed' を削除
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import { useAuthStore } from '@/stores/auth';
@@ -175,6 +54,9 @@ export default {
     // 退会用のデータ
     const showDeleteConfirmation = ref(false);
     const deleteErrorMessage = ref('');
+
+    // Pinia ストアからユーザー情報を取得
+    const user = computed(() => authStore.user); // この変数を使用する
 
     /**
      * ユーザーデータを取得する関数
@@ -333,11 +215,188 @@ export default {
       confirmDeleteAccount,
       handleDeleteAccount,
       cancelDeleteAccount,
+
+      // ユーザー情報（テンプレートで使用）
+      user,
     };
   },
 };
 </script>
 
 <style scoped>
-/* （既存のスタイルコード） */
+/* コンテナのスタイル */
+.mypage-container {
+  max-width: 600px;
+  margin: 50px auto;
+  padding: 30px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  background-color: #fafafa;
+  font-family: Arial, sans-serif;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+/* フォームグループのスタイル */
+.form-group {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+input[type='text'],
+input[type='email'],
+input[type='number'],
+select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #bbb;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+
+/* 共通ボタンスタイル */
+.btn {
+  width: 100%;
+  padding: 12px;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+/* ボタンの種類別スタイル */
+.btn-primary {
+  background-color: #28a745; /* プロフィール変更ボタンの色 */
+}
+
+.btn-secondary {
+  background-color: #17a2b8; /* ホーム・お気に入り・パスワード変更ボタンの色 */
+}
+
+.btn-danger {
+  background-color: #dc3545; /* 退会ボタンの色 */
+}
+
+/* ホバー効果 */
+.btn-primary:hover {
+  background-color: #218838;
+}
+
+.btn-secondary:hover {
+  background-color: #117a8b;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+/* エラーメッセージのスタイル */
+.error-message {
+  color: red;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+/* 成功メッセージのスタイル */
+.success-message {
+  color: green;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+/* ローディングインジケーターのスタイル */
+.loading-spinner {
+  text-align: center;
+  margin-top: 15px;
+  color: #555;
+}
+
+/* ナビゲーションリンクセクションのスタイル */
+.navigation-links {
+  margin-top: 20px;
+}
+
+.nav-link {
+  text-decoration: none;
+}
+
+/* ボタン間のスペースを確保 */
+.navigation-links .nav-link + .nav-link {
+  margin-top: 10px;
+}
+
+/* パスワード変更セクションのスタイル */
+.password-change-section {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #ccc;
+  text-align: center;
+}
+
+.password-change-link {
+  text-decoration: none;
+}
+
+/* 退会セクションのスタイル */
+.account-deletion-section {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #ccc;
+}
+
+/* 退会確認ダイアログのスタイル */
+.confirmation-dialog {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #dc3545;
+  border-radius: 10px;
+  background-color: #ffe6e6;
+  text-align: center;
+}
+
+/* 確認ダイアログ内のボタンスタイル */
+.confirm-button {
+  background-color: #dc3545;
+  margin-right: 10px;
+}
+
+.cancel-button {
+  background-color: #6c757d;
+}
+
+.confirm-button:hover {
+  background-color: #c82333;
+}
+
+.cancel-button:hover {
+  background-color: #5a6268;
+}
+
+/* レスポンシブデザイン */
+@media (max-width: 600px) {
+  .mypage-container {
+    padding: 20px;
+  }
+
+  button {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .confirm-button,
+  .cancel-button {
+    width: 100%;
+    margin: 5px 0;
+  }
+}
 </style>
