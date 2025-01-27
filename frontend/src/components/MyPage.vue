@@ -4,8 +4,12 @@
     <h2>マイページ</h2>
     
     <!-- ユーザー名の表示 -->
-    <h3>こんにちは、{{ user.username }}さん！</h3>
-    
+    <h3 v-if="user && user.username">
+     こんにちは、{{ user.username }}さん！
+    </h3>
+    <h3 v-else>
+     こんにちは！
+    </h3>    
     <!-- ローディングインジケーター -->
     <div v-if="isLoading" class="loading-spinner">
       データを読み込み中...
