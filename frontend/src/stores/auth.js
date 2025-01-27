@@ -61,5 +61,28 @@ export const useAuthStore = defineStore('auth', {
         console.error('ログアウトエラー:', error);
       }
     },
+
+    /**
+     * プロフィールを更新する
+     * @param {Object} updatedData - 更新されたユーザーデータ
+     */
+    async updateUserProfile(updatedData) {
+      try {
+        const response = await axios.post('/api/updateUser', updatedData, {
+          headers: { 'Content-Type': 'application/json' },
+          withCredentials: true,
+        });
+
+        if (response.data.status === 'success') {
+          this.user = response.data.user;
+          return { success: true };
+        } else {
+          return { success: false, message: response.data.message };
+        }
+      } catch (error) {
+        console.error('プロフィール更新エラー:', error);
+        return { success: false, message: error.response?.data?.message || 'サーバーエラーが発生しました。' };
+      }
+    },
   },
 });

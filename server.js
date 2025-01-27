@@ -69,7 +69,7 @@ app.get('/api', (req, res) => {
   res.send('API is running');
 });
 
-// 認証チェックミドルウェア例
+// 認証チェックミドルウェア
 function isAuthenticated(req, res, next) {
   if (req.session && req.session.user) {
     next();
@@ -90,6 +90,11 @@ app.get('/init', async (req, res) => {
         username TEXT NOT NULL UNIQUE,
         email TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
+        age INTEGER,
+        gender TEXT,
+        stress TEXT,
+        "dreamTheme" TEXT,
+        role TEXT DEFAULT 'user',
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
@@ -100,61 +105,7 @@ app.get('/init', async (req, res) => {
   }
 });
 
-app.post('/users', async (req, res) => {
-  const { username, email, password } = req.body;
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10); // パスワードをハッシュ化
-    const result = await pool.query(
-      `INSERT INTO users (username, email, password)
-       VALUES ($1, $2, $3)
-       RETURNING *;`,
-      [username, email, hashedPassword]
-    );
-    res.json({ status: 'success', user: result.rows[0] });
-  } catch (err) {
-    console.error('Error inserting user:', err);
-    res.status(500).json({ status: 'error', message: 'DB insert error' });
-  }
-});
-
-app.get('/users', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM users;');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching users:', err);
-    res.status(500).json({ status: 'error', message: 'DB fetch error' });
-  }
-});
-
-app.put('/users/:id', async (req, res) => {
-  const { id } = req.params;
-  const { username, email } = req.body;
-  try {
-    const result = await pool.query(
-      `UPDATE users
-       SET username = $1, email = $2
-       WHERE id = $3
-       RETURNING *;`,
-      [username, email, id]
-    );
-    res.json({ status: 'success', user: result.rows[0] });
-  } catch (err) {
-    console.error('Error updating user:', err);
-    res.status(500).json({ status: 'error', message: 'DB update error' });
-  }
-});
-
-app.delete('/users/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query(`DELETE FROM users WHERE id = $1;`, [id]);
-    res.json({ status: 'success', message: `User ${id} deleted.` });
-  } catch (err) {
-    console.error('Error deleting user:', err);
-    res.status(500).json({ status: 'error', message: 'DB delete error' });
-  }
-});
+// 既存のCRUDエンドポイント（必要に応じて）
 
 /* =============================
    ▼▼▼ ここまでPostgres CRUD ▼▼▼
@@ -170,7 +121,7 @@ app.post('/api/register', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO users (username, email, password)
        VALUES ($1, $2, $3)
-       RETURNING *;`,
+       RETURNING id, username, email, age, gender, stress, "dreamTheme", role, created_at;`,
       [username, email, hashedPassword]
     );
     res.json({ status: 'success', user: result.rows[0] });
@@ -213,7 +164,7 @@ app.post('/api/login', async (req, res) => {
     };
     
     // 成功レスポンスを返す
-    res.json({ status: 'success', message: 'ログインに成功しました。', user: { id: user.id, username: user.username } });
+    res.json({ status: 'success', message: 'ログインに成功しました。', user: { id: user.id, username: user.username, email: user.email, age: user.age, gender: user.gender, stress: user.stress, dreamTheme: user.dreamTheme, role: user.role, created_at: user.created_at } });
     
   } catch (err) {
     console.error('ログインエラー:', err);
@@ -246,6 +197,88 @@ app.get('/api/checksession', (req, res) => {
   }
 });
 
+/**
+ * ユーザーデータ取得エンドポイント
+ */
+app.get('/api/getUserData', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const result = await pool.query('SELECT username, email, age, gender, stress, "dreamTheme" FROM users WHERE id = $1', [userId]);
+
+    if (result.rowCount === 1) {
+      const userData = result.rows[0];
+      res.json({ status: 'success', user: userData });
+    } else {
+      res.status(404).json({ status: 'error', message: 'ユーザーデータが見つかりません。' });
+    }
+  } catch (err) {
+    console.error('ユーザーデータ取得エラー:', err);
+    res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+  }
+});
+
+/**
+ * ユーザーデータ更新エンドポイント
+ */
+app.post('/api/updateUser', isAuthenticated, async (req, res) => {
+  const userId = req.session.user.id;
+  const { username, email, age, gender, stress, dreamTheme } = req.body;
+
+  try {
+    // 必要に応じてバリデーションを追加
+    const result = await pool.query(
+      `UPDATE users
+       SET username = $1, email = $2, age = $3, gender = $4, stress = $5, "dreamTheme" = $6
+       WHERE id = $7
+       RETURNING username, email, age, gender, stress, "dreamTheme";`,
+      [username, email, age, gender, stress, dreamTheme, userId]
+    );
+
+    if (result.rowCount === 1) {
+      const updatedUser = result.rows[0];
+      res.json({ status: 'success', user: updatedUser });
+    } else {
+      res.status(404).json({ status: 'error', message: 'ユーザーデータの更新に失敗しました。' });
+    }
+  } catch (err) {
+    console.error('ユーザーデータ更新エラー:', err);
+    res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+  }
+});
+
+/**
+ * アカウント削除エンドポイント
+ */
+app.delete('/api/deleteAccount', isAuthenticated, async (req, res) => {
+  const userId = req.session.user.id;
+
+  try {
+    // トランザクションを開始
+    await pool.query('BEGIN');
+
+    // ユーザー関連のデータを削除（必要に応じて他のテーブルも削除）
+    await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    // トランザクションをコミット
+    await pool.query('COMMIT');
+
+    // セッションを破棄
+    req.session.destroy(err => {
+      if (err) {
+        console.error('セッション破棄エラー:', err);
+        return res.status(500).json({ status: 'error', message: 'アカウント削除後のセッション破棄に失敗しました。' });
+      }
+      res.clearCookie('connect.sid'); // セッションIDクッキーのクリア
+      res.json({ status: 'success', message: 'アカウントが正常に削除されました。' });
+    });
+  } catch (err) {
+    // エラーが発生した場合はロールバック
+    await pool.query('ROLLBACK');
+    console.error('アカウント削除エラー:', err);
+    res.status(500).json({ status: 'error', message: 'アカウント削除中にエラーが発生しました。' });
+  }
+});
+
 // ======== ここからAI解析の実装 ========
 
 // OpenAI 初期化
@@ -254,7 +287,7 @@ const configuration = new Configuration({
 });
 const openai = new OpenAIApi(configuration);
 
-app.post('/interpret-dream', async (req, res) => {
+app.post('/api/interpret-dream', async (req, res) => {
   try {
     const { dream } = req.body;
     if (!dream) {
