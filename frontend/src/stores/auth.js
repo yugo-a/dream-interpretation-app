@@ -1,6 +1,6 @@
 // src/stores/auth.js
 import { defineStore } from 'pinia';
-import axios from 'axios';
+import axios from '@/axios'; // カスタムインスタンスをインポート
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -13,7 +13,8 @@ export const useAuthStore = defineStore('auth', {
      */
     async checkLoginStatus() {
       try {
-        const response = await axios.get('/api/checksession');
+        // GET http://localhost:3000/api/checksession
+        const response = await axios.get('/checksession');
         this.isLoggedIn = response.data.loggedIn;
         this.user = response.data.user || null;
       } catch (error) {
@@ -31,7 +32,8 @@ export const useAuthStore = defineStore('auth', {
      */
     async login(username, password) {
       try {
-        const response = await axios.post('/api/login', { username, password });
+        // POST http://localhost:3000/api/login
+        const response = await axios.post('/login', { username, password });
         if (response.data.status === 'success') {
           this.isLoggedIn = true;
           this.user = response.data.user;
@@ -41,7 +43,10 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch (error) {
         console.error('ログインエラー:', error);
-        return { success: false, message: error.response?.data?.message || 'サーバーエラーが発生しました。' };
+        return {
+          success: false,
+          message: error.response?.data?.message || 'サーバーエラーが発生しました。',
+        };
       }
     },
 
@@ -50,7 +55,8 @@ export const useAuthStore = defineStore('auth', {
      */
     async logout() {
       try {
-        const response = await axios.post('/api/logout');
+        // POST http://localhost:3000/api/logout
+        const response = await axios.post('/logout');
         if (response.data.status === 'success') {
           this.isLoggedIn = false;
           this.user = null;
@@ -68,9 +74,9 @@ export const useAuthStore = defineStore('auth', {
      */
     async updateUserProfile(updatedData) {
       try {
-        const response = await axios.post('/api/updateUser', updatedData, {
+        // POST http://localhost:3000/api/updateUser
+        const response = await axios.post('/updateUser', updatedData, {
           headers: { 'Content-Type': 'application/json' },
-          withCredentials: true,
         });
 
         if (response.data.status === 'success') {
@@ -81,7 +87,10 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch (error) {
         console.error('プロフィール更新エラー:', error);
-        return { success: false, message: error.response?.data?.message || 'サーバーエラーが発生しました。' };
+        return {
+          success: false,
+          message: error.response?.data?.message || 'サーバーエラーが発生しました。',
+        };
       }
     },
   },

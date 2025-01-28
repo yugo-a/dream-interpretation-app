@@ -1,4 +1,3 @@
-<!-- src/components/Login.vue -->
 <template>
   <div class="login-container">
     <h2>ログイン</h2>
@@ -13,6 +12,7 @@
           placeholder="ユーザー名を入力してください"
         />
       </div>
+
       <div class="form-group">
         <label for="password">パスワード</label>
         <input
@@ -23,16 +23,20 @@
           placeholder="パスワードを入力してください"
         />
       </div>
+
       <div v-if="errorMessage" class="error-message">
         {{ errorMessage }}
       </div>
+
       <button type="submit" :disabled="isLoading">
         ログイン
       </button>
+
       <div v-if="isLoading" class="loading-spinner">
         ログイン中...
       </div>
     </form>
+
     <p>
       アカウントをお持ちでないですか？
       <router-link to="/register">会員登録はこちら</router-link>
@@ -62,7 +66,9 @@ export default {
       errorMessage.value = '';
       isLoading.value = true;
 
+      // Pinia ストアの login() を呼び出す
       const result = await authStore.login(username.value, password.value);
+
       isLoading.value = false;
 
       if (result.success) {
