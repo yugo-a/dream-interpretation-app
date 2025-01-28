@@ -18,9 +18,99 @@
 
     <!-- コンテンツがロードされ、エラーがない場合に表示 -->
     <div v-if="!isLoading && !errorMessage">
-      <!-- プロフィール編集フォームなどをここに配置 -->
-      <!-- 例: <p>メールアドレス: {{ email }}</p> -->
-      <!-- ... -->
+      <!-- プロフィール編集フォーム -->
+      <div class="form-group">
+        <label for="username">ユーザー名</label>
+        <input
+          type="text"
+          id="username"
+          v-model="username"
+          placeholder="ユーザー名を入力"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="email">メールアドレス</label>
+        <input
+          type="email"
+          id="email"
+          v-model="email"
+          placeholder="メールアドレスを入力"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="age">年齢</label>
+        <input
+          type="number"
+          id="age"
+          v-model="age"
+          placeholder="年齢を入力"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="gender">性別</label>
+        <select id="gender" v-model="gender">
+          <option value="">選択してください</option>
+          <option value="male">男性</option>
+          <option value="female">女性</option>
+          <option value="other">その他</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="stress">ストレス</label>
+        <input
+          type="text"
+          id="stress"
+          v-model="stress"
+          placeholder="ストレスの状態など"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="dreamTheme">夢テーマ</label>
+        <input
+          type="text"
+          id="dreamTheme"
+          v-model="dreamTheme"
+          placeholder="夢のテーマ"
+        />
+      </div>
+
+      <!-- エラーメッセージ -->
+      <div v-if="updateErrorMessage" class="error-message">
+        {{ updateErrorMessage }}
+      </div>
+      <!-- 成功メッセージ -->
+      <div v-if="successMessage" class="success-message">
+        {{ successMessage }}
+      </div>
+
+      <!-- プロフィール更新ボタン -->
+      <button
+        class="btn btn-primary"
+        @click="handleUpdate"
+        :disabled="isUpdating"
+      >
+        プロフィールを更新
+      </button>
+
+      <!-- 退会ボタン -->
+      <button class="btn btn-danger" @click="confirmDeleteAccount">
+        退会する
+      </button>
+
+      <!-- 退会確認ダイアログ -->
+      <div v-if="showDeleteConfirmation" class="confirmation-dialog">
+        <p>本当に退会しますか？</p>
+        <div v-if="deleteErrorMessage" class="error-message">
+          {{ deleteErrorMessage }}
+        </div>
+        <button class="btn confirm-button" @click="handleDeleteAccount">退会する</button>
+        <button class="btn cancel-button" @click="cancelDeleteAccount">キャンセル</button>
+      </div>
     </div>
   </div>
 </template>
@@ -30,7 +120,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import { useAuthStore } from '@/stores/auth';
-import axios from '@/axios'; // カスタムaxiosインスタンスを利用
+import axios from '@/axios';
 
 export default {
   name: 'MyPage',
@@ -66,9 +156,8 @@ export default {
      */
     const fetchUserData = async () => {
       try {
-        // GET http://localhost:3000/api/getUserData (src/axios.jsによりbaseURL適用)
+        // GET /api/getUserData
         const response = await axios.get('/getUserData');
-
         if (response.data.status === 'success') {
           const userData = response.data.user;
           username.value = userData.username || '';
@@ -82,14 +171,15 @@ export default {
         }
       } catch (error) {
         console.error('ユーザーデータ取得エラー:', error);
-        errorMessage.value = error.response?.data?.message || 'サーバーエラーが発生しました。';
+        errorMessage.value =
+          error.response?.data?.message || 'サーバーエラーが発生しました。';
       } finally {
         isLoading.value = false;
       }
     };
 
     /**
-     * プロフィール更新
+     * プロフィールを更新
      */
     const handleUpdate = async () => {
       updateErrorMessage.value = '';
@@ -115,7 +205,7 @@ export default {
       }
 
       try {
-        // POST http://localhost:3000/api/updateUser
+        // POST /api/updateUser
         const response = await axios.post('/updateUser', {
           username: username.value.trim(),
           email: email.value.trim(),
@@ -156,14 +246,12 @@ export default {
      */
     const handleDeleteAccount = async () => {
       deleteErrorMessage.value = '';
-
       try {
-        // DELETE http://localhost:3000/api/deleteAccount
+        // DELETE /api/deleteAccount
         const response = await axios.delete('/deleteAccount');
-
         if (response.data.status === 'success') {
           toast.success('アカウントが削除されました。ご利用ありがとうございました。');
-          router.push('/'); // ホームへリダイレクト
+          router.push('/');
         } else {
           deleteErrorMessage.value =
             response.data.message || 'アカウントの削除に失敗しました。';
@@ -269,6 +357,7 @@ select {
   cursor: pointer;
   font-size: 16px;
   margin-bottom: 10px;
+  transition: background-color 0.2s;
 }
 
 .btn-primary {
@@ -325,5 +414,56 @@ select {
 }
 .cancel-button:hover {
   background-color: #5a6268;
+}
+
+/* ======== レスポンシブ対応: 画面幅 600px 以下の時 ======== */
+@media (max-width: 600px) {
+  .mypage-container {
+    width: 90%;
+    margin: 20px auto;
+    padding: 20px;
+  }
+
+  h2 {
+    font-size: 24px;
+    margin-bottom: 20px;
+  }
+
+  h3 {
+    font-size: 20px;
+  }
+
+  /* フォームグループのマージンを少し狭める */
+  .form-group {
+    margin-bottom: 15px;
+  }
+
+  label {
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+
+  input[type='text'],
+  input[type='email'],
+  input[type='number'],
+  select {
+    padding: 8px;
+    font-size: 14px;
+  }
+
+  .btn {
+    padding: 10px;
+    font-size: 14px;
+  }
+  
+  .confirmation-dialog {
+    padding: 15px;
+  }
+  
+  .confirm-button,
+  .cancel-button {
+    margin: 5px 0;
+    width: 100%;
+  }
 }
 </style>
