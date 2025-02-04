@@ -45,7 +45,6 @@
             :class="['favorite-button', msg.isFavorite ? 'favorited' : '']"
             :aria-label="msg.isFavorite ? 'お気に入りを解除する' : 'お気に入りに追加する'"
           >
-            <!-- お気に入りアイコン（ハートマーク） -->
             <span v-if="msg.isFavorite">❤️</span>
             <span v-else>🤍</span>
           </button>
@@ -214,9 +213,10 @@ export default {
         }
       } catch (error) {
         console.error('Error sending message:', error);
-        const errorMessage = error.response && error.response.data && error.response.data.message
-          ? error.response.data.message
-          : 'エラーが発生しました。もう一度お試しください。';
+        const errorMessage =
+          error.response && error.response.data && error.response.data.message
+            ? error.response.data.message
+            : 'エラーが発生しました。もう一度お試しください。';
         chatHistory.value.push({
           id: Date.now() + 4,
           text: `エラーが発生しました: ${errorMessage}`,
@@ -234,7 +234,6 @@ export default {
      */
     const clearMessages = () => {
       chatHistory.value = [];
-      // 必要に応じて他のリセットロジックを追加
     };
 
     /**
@@ -293,7 +292,7 @@ export default {
       logout,
       escapeHTML,
       chatHistoryDiv,
-      toggleFavorite, // お気に入り関数を返す
+      toggleFavorite,
     };
   },
 };
@@ -473,61 +472,43 @@ button:hover {
 
 /* ▼▼▼ スマホ向けのメディアクエリ例 ▼▼▼ */
 @media (max-width: 600px) {
-  /* 全体のパディングや最大幅を調整 */
   .home {
     max-width: 100%;
     padding: 10px;
   }
-
-  /* ヘッダー部分 */
   header {
     margin-bottom: 10px;
   }
-
-  /* 「認証ボタン」を縦方向に並べる例 */
   .auth-buttons {
-    position: static; /* 絶対配置をやめる */
+    position: static;
     display: flex;
-    flex-direction: column; /* 縦並びに */
+    flex-direction: column;
     gap: 10px;
-    align-items: flex-start; /* 左寄せ */
+    align-items: flex-start;
   }
-
-  /* ボタン幅を全て100%にして統一 */
   .auth-buttons button,
   .chat-input input[type='text'],
   .chat-input button {
     width: 100%;
   }
-
-  /* ボタンのサイズや文字サイズを小さめに */
   .auth-buttons button {
     padding: 8px 10px;
     font-size: 14px;
   }
-
-  /* チャットコンテナを幅100%に */
   .chat-container {
     margin-top: 10px;
     padding: 10px;
   }
-
-  /* チャット履歴を高さ再調整 */
   .chat-history {
-    height: 200px; /* 300px -> 200px とかに */
+    height: 200px;
   }
-
-  /* inputとボタンが横並びだと狭いので縦並びにする */
   .chat-input {
     flex-direction: column; 
     gap: 10px;
   }
-
-  /* input幅を100% */
   .chat-input input[type='text'] {
     width: 100%;
   }
-
   .clear-button {
     width: 100%;
   }

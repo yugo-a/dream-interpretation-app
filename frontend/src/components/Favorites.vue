@@ -10,11 +10,11 @@
         <div class="spinner"></div>
         <span>お気に入りデータを読み込み中...</span>
       </div>
-      
+
       <div v-if="!isLoading && favorites.length === 0" class="no-favorites">
         お気に入りに登録されたインタラクションがありません。
       </div>
-      
+
       <div v-else class="favorites-list">
         <div v-for="item in favorites" :key="item.id" class="favorite-card">
           <h3>対話 #{{ item.id }}</h3>
@@ -34,7 +34,7 @@
 </template>
 
 <script>
-import axios from '@/axios'; // 標準のaxiosを使用
+import axios from '@/axios';
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
@@ -53,7 +53,8 @@ export default {
     const fetchFavorites = async () => {
       isLoading.value = true;
       try {
-        const response = await axios.get('/favorites', { withCredentials: true });
+        // エンドポイントは /api/favorites とし、withCredentials を指定
+        const response = await axios.get('/api/favorites', { withCredentials: true });
         if (response.data.status === 'success') {
           favorites.value = response.data.favorites;
         } else {
@@ -69,11 +70,12 @@ export default {
 
     /**
      * お気に入りを解除する関数
-     * @param {Number} messageId 
+     * @param {Number} messageId
      */
     const removeFavorite = async (messageId) => {
       try {
-        const response = await axios.delete(`/favorites/${messageId}`, { withCredentials: true });
+        // withCredentials を指定して削除リクエストを送信
+        const response = await axios.delete(`/api/favorites/${messageId}`, { withCredentials: true });
         if (response.data.status === 'success') {
           favorites.value = favorites.value.filter(item => item.id !== messageId);
           toast.success('お気に入りから解除しました。');
@@ -87,10 +89,10 @@ export default {
     };
 
     /**
-     * 戻るボタンの機能
+     * 戻るボタンの機能：ホーム画面に戻る
      */
     const goBack = () => {
-      router.push('/'); // ホーム画面に戻る
+      router.push('/');
     };
 
     onMounted(() => {
@@ -155,8 +157,8 @@ header button:hover {
 }
 
 .spinner {
-  border: 4px solid #f3f3f3; /* Light grey */
-  border-top: 4px solid #3498db; /* Blue */
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
   border-radius: 50%;
   width: 24px;
   height: 24px;
@@ -201,7 +203,6 @@ header button:hover {
   margin-bottom: 10px;
 }
 
-/* ボタンのスタイル */
 .btn {
   width: 100%;
   padding: 12px;
@@ -210,19 +211,18 @@ header button:hover {
   border-radius: 5px;
   cursor: pointer;
   font-size: 16px;
-  margin: 10px 0; /* 上下の余白を統一 */
+  margin: 10px 0;
   transition: background-color 0.3s ease;
 }
 
 .btn-danger {
-  background-color: #dc3545; /* お気に入り解除ボタンの色 */
+  background-color: #dc3545;
 }
 
 .btn-danger:hover {
   background-color: #c82333;
 }
 
-/* レスポンシブデザイン */
 @media (max-width: 600px) {
   .favorites-list {
     flex-direction: column;

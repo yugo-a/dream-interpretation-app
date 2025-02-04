@@ -1,3 +1,4 @@
+<!-- src/components/MyPage.vue -->
 <template>
   <div class="mypage-container">
     <h2>マイページ</h2>
@@ -79,16 +80,13 @@
         />
       </div>
 
-      <!-- エラーメッセージ -->
+      <!-- プロフィール更新ボタン -->
       <div v-if="updateErrorMessage" class="error-message">
         {{ updateErrorMessage }}
       </div>
-      <!-- 成功メッセージ -->
       <div v-if="successMessage" class="success-message">
         {{ successMessage }}
       </div>
-
-      <!-- プロフィール更新ボタン -->
       <button
         class="btn btn-primary"
         @click="handleUpdate"
@@ -101,8 +99,6 @@
       <button class="btn btn-danger" @click="confirmDeleteAccount">
         退会する
       </button>
-
-      <!-- 退会確認ダイアログ -->
       <div v-if="showDeleteConfirmation" class="confirmation-dialog">
         <p>本当に退会しますか？</p>
         <div v-if="deleteErrorMessage" class="error-message">
@@ -111,6 +107,16 @@
         <button class="btn confirm-button" @click="handleDeleteAccount">退会する</button>
         <button class="btn cancel-button" @click="cancelDeleteAccount">キャンセル</button>
       </div>
+    </div>
+
+    <!-- ▼ 追加: ナビゲーション（ホームへ戻る・お気に入り一覧・ログアウト） -->
+    <div class="navigation-links">
+      <!-- ホーム画面へのリンク -->
+      <router-link class="btn btn-secondary nav-link" to="/">ホームへ戻る</router-link>
+      <!-- お気に入り一覧へのリンク -->
+      <router-link class="btn btn-secondary nav-link" to="/favorites">お気に入り一覧</router-link>
+      <!-- ログアウトボタン -->
+      <button class="btn btn-danger nav-link" @click="handleLogout">ログアウト</button>
     </div>
   </div>
 </template>
@@ -129,10 +135,8 @@ export default {
     const toast = useToast();
     const authStore = useAuthStore();
 
-    // Pinia ストアからユーザー情報を取得
     const user = computed(() => authStore.user);
 
-    // ローディングやエラーメッセージ管理
     const isLoading = ref(true);
     const errorMessage = ref('');
 
@@ -147,27 +151,25 @@ export default {
     const successMessage = ref('');
     const isUpdating = ref(false);
 
-    // 退会関連
+    // 退会
     const showDeleteConfirmation = ref(false);
     const deleteErrorMessage = ref('');
 
-    /**
-     * ユーザーデータを取得する関数
-     */
+    // --- ユーザーデータ取得 ---
     const fetchUserData = async () => {
       try {
-        // GET /api/getUserData
         const response = await axios.get('/getUserData');
         if (response.data.status === 'success') {
           const userData = response.data.user;
           username.value = userData.username || '';
           email.value = userData.email || '';
-          age.value = userData.age !== null && userData.age !== undefined ? userData.age : '';
+          age.value = userData.age ?? '';
           gender.value = userData.gender || '';
           stress.value = userData.stress || '';
           dreamTheme.value = userData.dreamTheme || '';
         } else {
-          errorMessage.value = response.data.message || 'ユーザーデータの取得に失敗しました。';
+          errorMessage.value =
+            response.data.message || 'ユーザーデータの取得に失敗しました。';
         }
       } catch (error) {
         console.error('ユーザーデータ取得エラー:', error);
@@ -178,15 +180,13 @@ export default {
       }
     };
 
-    /**
-     * プロフィールを更新
-     */
+    // --- プロフィール更新 ---
     const handleUpdate = async () => {
       updateErrorMessage.value = '';
       successMessage.value = '';
       isUpdating.value = true;
 
-      // バリデーション（例）
+      // 簡易バリデーション
       if (username.value.trim() === '') {
         updateErrorMessage.value = 'ユーザー名は必須です。';
         isUpdating.value = false;
@@ -205,7 +205,6 @@ export default {
       }
 
       try {
-        // POST /api/updateUser
         const response = await axios.post('/updateUser', {
           username: username.value.trim(),
           email: email.value.trim(),
@@ -219,7 +218,7 @@ export default {
           successMessage.value = 'プロフィールが更新されました。';
           // 最新データを再取得
           await fetchUserData();
-          // Piniaのユーザー情報も更新
+          // Piniaストアのユーザー情報も更新
           authStore.user = response.data.user;
         } else {
           updateErrorMessage.value =
@@ -234,24 +233,20 @@ export default {
       }
     };
 
-    /**
-     * 退会確認ダイアログを表示
-     */
+    // --- 退会ボタン ---
     const confirmDeleteAccount = () => {
       showDeleteConfirmation.value = true;
     };
-
-    /**
-     * 退会を実行
-     */
+    const cancelDeleteAccount = () => {
+      showDeleteConfirmation.value = false;
+    };
     const handleDeleteAccount = async () => {
       deleteErrorMessage.value = '';
       try {
-        // DELETE /api/deleteAccount
         const response = await axios.delete('/deleteAccount');
         if (response.data.status === 'success') {
           toast.success('アカウントが削除されました。ご利用ありがとうございました。');
-          router.push('/');
+          router.push('/'); // ホーム画面へ
         } else {
           deleteErrorMessage.value =
             response.data.message || 'アカウントの削除に失敗しました。';
@@ -265,11 +260,14 @@ export default {
       }
     };
 
-    /**
-     * 退会確認ダイアログをキャンセル
-     */
-    const cancelDeleteAccount = () => {
-      showDeleteConfirmation.value = false;
+    // --- ログアウト処理 ---
+    const handleLogout = async () => {
+      try {
+        await authStore.logout(); // Piniaストアのlogoutアクション
+        router.push('/'); // ログアウト後はホーム画面に遷移
+      } catch (err) {
+        console.error('ログアウトに失敗:', err);
+      }
     };
 
     onMounted(() => {
@@ -277,18 +275,20 @@ export default {
     });
 
     return {
-      // プロフィール編集用
+      user,
+      isLoading,
+      errorMessage,
+
+      // プロフィール
       username,
       email,
       age,
       gender,
       stress,
       dreamTheme,
-      isLoading,
-      isUpdating,
-      errorMessage,
       updateErrorMessage,
       successMessage,
+      isUpdating,
       handleUpdate,
 
       // 退会
@@ -298,14 +298,15 @@ export default {
       handleDeleteAccount,
       cancelDeleteAccount,
 
-      // ユーザー情報
-      user,
+      // ログアウト
+      handleLogout,
     };
   },
 };
 </script>
 
 <style scoped>
+/* （省略せずフルコード。レスポンシブ対応などは前回と同様） */
 .mypage-container {
   max-width: 600px;
   margin: 50px auto;
@@ -347,7 +348,7 @@ select {
   box-sizing: border-box;
 }
 
-/* ボタン */
+/* ボタン共通 */
 .btn {
   width: 100%;
   padding: 12px;
@@ -357,41 +358,48 @@ select {
   cursor: pointer;
   font-size: 16px;
   margin-bottom: 10px;
-  transition: background-color 0.2s;
+  text-align: center;
+  display: inline-block;
 }
 
+/* ボタン色 */
 .btn-primary {
-  background-color: #28a745;
+  background-color: #28a745; /* 更新など */
 }
 .btn-primary:hover {
   background-color: #218838;
 }
-
+.btn-secondary {
+  background-color: #17a2b8; /* ホームやお気に入りなど */
+}
+.btn-secondary:hover {
+  background-color: #117a8b;
+}
 .btn-danger {
-  background-color: #dc3545;
+  background-color: #dc3545; /* 退会やログアウト */
 }
 .btn-danger:hover {
   background-color: #c82333;
 }
 
+/* エラーや成功メッセージ */
 .error-message {
   color: red;
   margin-bottom: 15px;
   text-align: center;
 }
-
 .success-message {
   color: green;
   margin-bottom: 15px;
   text-align: center;
 }
-
 .loading-spinner {
   text-align: center;
   margin-top: 15px;
   color: #555;
 }
 
+/* 退会ダイアログ */
 .confirmation-dialog {
   margin-top: 20px;
   padding: 20px;
@@ -400,7 +408,6 @@ select {
   background-color: #ffe6e6;
   text-align: center;
 }
-
 .confirm-button {
   background-color: #dc3545;
   margin-right: 10px;
@@ -408,7 +415,6 @@ select {
 .confirm-button:hover {
   background-color: #c82333;
 }
-
 .cancel-button {
   background-color: #6c757d;
 }
@@ -416,54 +422,30 @@ select {
   background-color: #5a6268;
 }
 
-/* ======== レスポンシブ対応: 画面幅 600px 以下の時 ======== */
+/* 追加: ナビゲーションリンクのコンテナ */
+.navigation-links {
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.nav-link {
+  text-decoration: none;
+  text-align: center;
+}
+
+/* レスポンシブ */
 @media (max-width: 600px) {
   .mypage-container {
     width: 90%;
-    margin: 20px auto;
     padding: 20px;
   }
-
-  h2 {
-    font-size: 24px;
-    margin-bottom: 20px;
-  }
-
-  h3 {
-    font-size: 20px;
-  }
-
-  /* フォームグループのマージンを少し狭める */
-  .form-group {
-    margin-bottom: 15px;
-  }
-
-  label {
-    margin-bottom: 5px;
-    font-size: 14px;
-  }
-
-  input[type='text'],
-  input[type='email'],
-  input[type='number'],
-  select {
-    padding: 8px;
-    font-size: 14px;
-  }
-
   .btn {
     padding: 10px;
     font-size: 14px;
   }
-  
-  .confirmation-dialog {
-    padding: 15px;
-  }
-  
-  .confirm-button,
-  .cancel-button {
-    margin: 5px 0;
-    width: 100%;
+  .navigation-links {
+    gap: 5px;
   }
 }
 </style>
