@@ -111,7 +111,7 @@ export default {
      */
     const fetchFavorites = async () => {
       try {
-        const response = await axios.get('/api/favorites', { withCredentials: true });
+        const response = await axios.get('/favorites', { withCredentials: true });
         if (response.data.status === 'success') {
           const favoriteIds = response.data.favorites.map(fav => fav.message_id);
           // チャット履歴の各メッセージにお気に入り状態を設定
@@ -145,7 +145,7 @@ export default {
       try {
         if (messageItem.isFavorite) {
           // お気に入り解除
-          const response = await axios.delete(`/api/favorites/${messageId}`, { withCredentials: true });
+          const response = await axios.delete(`/favorites/${messageId}`, { withCredentials: true });
           if (response.data.status === 'success') {
             messageItem.isFavorite = false;
             toast.success('お気に入りから解除しました。');
@@ -154,7 +154,7 @@ export default {
           }
         } else {
           // お気に入り追加
-          const response = await axios.post('/api/favorites', { messageId }, { withCredentials: true });
+          const response = await axios.post('/favorites', { messageId }, { withCredentials: true });
           if (response.data.status === 'success') {
             messageItem.isFavorite = true;
             toast.success('お気に入りに追加しました。');
