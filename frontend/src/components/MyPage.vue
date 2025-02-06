@@ -163,8 +163,8 @@ export default {
     // --- ユーザーデータ取得 ---
     const fetchUserData = async () => {
       try {
-        // エンドポイントは /api/getUserData、withCredentials を指定
-        const response = await axios.get('/api/getUserData', { withCredentials: true });
+        // baseURL が "/api" として設定されている場合、先頭の "/api" は不要
+        const response = await axios.get('/getUserData', { withCredentials: true });
         if (response.data.status === 'success') {
           const userData = response.data.user;
           username.value = userData.username || '';
@@ -211,9 +211,9 @@ export default {
       }
 
       try {
-        // エンドポイント /api/updateUser、withCredentials を指定
+        // エンドポイントの先頭 "/api" を削除
         const response = await axios.post(
-          '/api/updateUser',
+          '/updateUser',
           {
             username: username.value.trim(),
             email: email.value.trim(),
@@ -229,7 +229,7 @@ export default {
           successMessage.value = 'プロフィールが更新されました。';
           // 最新データを再取得
           await fetchUserData();
-          // Piniaストアのユーザー情報も更新
+          // Pinia ストアのユーザー情報も更新
           authStore.user = response.data.user;
         } else {
           updateErrorMessage.value =
@@ -254,8 +254,8 @@ export default {
     const handleDeleteAccount = async () => {
       deleteErrorMessage.value = '';
       try {
-        // エンドポイント /api/deleteAccount、withCredentials を指定
-        const response = await axios.delete('/api/deleteAccount', { withCredentials: true });
+        // エンドポイントの先頭 "/api" を削除
+        const response = await axios.delete('/deleteAccount', { withCredentials: true });
         if (response.data.status === 'success') {
           toast.success('アカウントが削除されました。ご利用ありがとうございました。');
           router.push('/'); // ホーム画面へ
@@ -275,8 +275,8 @@ export default {
     // --- ログアウト ---
     const handleLogout = async () => {
       try {
-        await authStore.logout(); // Pinia ストアの logout アクション
-        router.push('/'); // ログアウト後はホーム画面へ遷移
+        await authStore.logout();
+        router.push('/');
       } catch (err) {
         console.error('ログアウトに失敗:', err);
       }
@@ -381,7 +381,7 @@ select {
   background-color: #218838;
 }
 .btn-secondary {
-  background-color: #17a2b8; /* ナビゲーション用（ホーム、お気に入り） */
+  background-color: #17a2b8; /* ナビゲーション用 */
 }
 .btn-secondary:hover {
   background-color: #117a8b;
