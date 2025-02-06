@@ -57,7 +57,7 @@ export default {
       isLoading.value = true;
       try {
         // エンドポイントは /api/favorites とし、withCredentials を指定
-        const response = await axios.get('/api/favorites', { withCredentials: true });
+        const response = await axios.get('/favorites', { withCredentials: true });
         if (response.data.status === 'success') {
           favorites.value = response.data.favorites;
         } else {
@@ -78,7 +78,7 @@ export default {
     const removeFavorite = async (messageId) => {
       try {
         // withCredentials を指定して削除リクエストを送信
-        const response = await axios.delete(`/api/favorites/${messageId}`, { withCredentials: true });
+        const response = await axios.delete(`/favorites/${messageId}`, { withCredentials: true });
         if (response.data.status === 'success') {
           favorites.value = favorites.value.filter(item => item.id !== messageId);
           toast.success('お気に入りから解除しました。');
