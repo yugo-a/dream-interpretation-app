@@ -9,10 +9,10 @@
       <div class="auth-buttons">
         <button v-if="!isLoggedIn" @click="goToLogin">ログイン</button>
         <button v-if="!isLoggedIn" @click="goToRegister">会員登録</button>
-        <button v-if="isLoggedIn" @click="logout">ログアウト</button>
+        <!-- ログアウトボタンは削除 -->
         <button v-if="isLoggedIn" @click="goToMyPage">マイページ</button>
-        <!-- 「お気に入り一覧」ボタンを追加する場合は以下のコメントを外してください -->
-        <!-- <button v-if="isLoggedIn" @click="goToFavorites">お気に入り一覧</button> -->
+        <!-- ログイン後はお気に入り一覧ボタンを表示 -->
+        <button v-if="isLoggedIn" @click="goToFavorites">お気に入り一覧</button>
       </div>
     </header>
 
@@ -261,19 +261,9 @@ export default {
     const goToMyPage = () => router.push('/mypage');
 
     /**
-     * ログアウトする関数
+     * お気に入り一覧ページに遷移する関数
      */
-    const logout = async () => {
-      try {
-        await authStore.logout();
-        toast.success('ログアウトしました。');
-        clearMessages();
-        router.push('/');
-      } catch (error) {
-        console.error('Error logging out:', error);
-        toast.error('ログアウト中にエラーが発生しました。');
-      }
-    };
+    const goToFavorites = () => router.push('/favorites');
 
     onMounted(() => {
       checkLoginStatus();
@@ -289,7 +279,7 @@ export default {
       goToLogin,
       goToRegister,
       goToMyPage,
-      logout,
+      goToFavorites,
       escapeHTML,
       chatHistoryDiv,
       toggleFavorite,
@@ -323,6 +313,7 @@ header {
   margin-top: 20px;
 }
 
+/* 認証ボタンの配置と横幅を統一 */
 .auth-buttons {
   position: absolute;
   top: 10px;
@@ -330,7 +321,6 @@ header {
   display: flex;
   gap: 10px;
 }
-
 .auth-buttons button {
   padding: 10px 15px;
   border: none;
@@ -339,8 +329,9 @@ header {
   background-color: #007bff;
   color: #fff;
   font-size: 16px;
+  /* 横幅を揃えるために最低幅を指定 */
+  min-width: 120px;
 }
-
 .auth-buttons button:hover {
   background-color: #0056b3;
 }
@@ -393,15 +384,12 @@ header {
   font-size: 24px;
   transition: transform 0.2s;
 }
-
 .favorite-button:hover {
   transform: scale(1.2);
 }
-
 .favorite-button.favorited {
   color: #e74c3c; /* お気に入り登録済みの色（赤） */
 }
-
 .favorite-button:not(.favorited) {
   color: #ccc; /* 未登録の色（グレー） */
 }
@@ -411,14 +399,12 @@ header {
   gap: 10px;
   align-items: center;
 }
-
 input[type='text'] {
   flex: 1;
   padding: 15px;
   border-radius: 5px;
   border: 1px solid #ccc;
 }
-
 button {
   padding: 15px;
   border: none;
@@ -426,15 +412,12 @@ button {
   cursor: pointer;
   font-size: 16px;
 }
-
 button:hover {
   background-color: #ddd;
 }
-
 .clear-button {
   background-color: #f0c040;
 }
-
 .clear-button:hover {
   background-color: #e0a020;
 }
@@ -464,7 +447,6 @@ button:hover {
   height: 24px;
   animation: spin 2s linear infinite;
 }
-
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }

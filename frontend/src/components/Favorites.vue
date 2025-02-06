@@ -6,15 +6,18 @@
       <button @click="goBack">戻る</button>
     </header>
     <div class="favorites-container">
+      <!-- 読み込み中の場合 -->
       <div v-if="isLoading" class="loading-indicator">
         <div class="spinner"></div>
         <span>お気に入りデータを読み込み中...</span>
       </div>
-
-      <div v-if="!isLoading && favorites.length === 0" class="no-favorites">
+      
+      <!-- 読み込み完了後、お気に入りがない場合 -->
+      <div v-else-if="favorites.length === 0" class="no-favorites">
         お気に入りに登録されたインタラクションがありません。
       </div>
-
+      
+      <!-- 読み込み完了後、お気に入りがある場合 -->
       <div v-else class="favorites-list">
         <div v-for="item in favorites" :key="item.id" class="favorite-card">
           <h3>対話 #{{ item.id }}</h3>

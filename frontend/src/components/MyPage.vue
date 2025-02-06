@@ -104,8 +104,12 @@
         <div v-if="deleteErrorMessage" class="error-message">
           {{ deleteErrorMessage }}
         </div>
-        <button class="btn confirm-button" @click="handleDeleteAccount">退会する</button>
-        <button class="btn cancel-button" @click="cancelDeleteAccount">キャンセル</button>
+        <button class="btn confirm-button" @click="handleDeleteAccount">
+          退会する
+        </button>
+        <button class="btn cancel-button" @click="cancelDeleteAccount">
+          キャンセル
+        </button>
       </div>
     </div>
 
@@ -135,12 +139,13 @@ export default {
     const toast = useToast();
     const authStore = useAuthStore();
 
+    // Pinia ストアからユーザー情報を参照
     const user = computed(() => authStore.user);
 
     const isLoading = ref(true);
     const errorMessage = ref('');
 
-    // プロフィール編集用
+    // プロフィール編集用の各値
     const username = ref('');
     const email = ref('');
     const age = ref('');
@@ -151,14 +156,15 @@ export default {
     const successMessage = ref('');
     const isUpdating = ref(false);
 
-    // 退会
+    // 退会用
     const showDeleteConfirmation = ref(false);
     const deleteErrorMessage = ref('');
 
     // --- ユーザーデータ取得 ---
     const fetchUserData = async () => {
       try {
-        const response = await axios.get('/getUserData');
+        // エンドポイントは /api/getUserData、withCredentials を指定
+        const response = await axios.get('/api/getUserData', { withCredentials: true });
         if (response.data.status === 'success') {
           const userData = response.data.user;
           username.value = userData.username || '';
@@ -205,14 +211,19 @@ export default {
       }
 
       try {
-        const response = await axios.post('/updateUser', {
-          username: username.value.trim(),
-          email: email.value.trim(),
-          age: age.value ? parseInt(age.value, 10) : null,
-          gender: gender.value,
-          stress: stress.value,
-          dreamTheme: dreamTheme.value,
-        });
+        // エンドポイント /api/updateUser、withCredentials を指定
+        const response = await axios.post(
+          '/api/updateUser',
+          {
+            username: username.value.trim(),
+            email: email.value.trim(),
+            age: age.value ? parseInt(age.value, 10) : null,
+            gender: gender.value,
+            stress: stress.value,
+            dreamTheme: dreamTheme.value,
+          },
+          { withCredentials: true }
+        );
 
         if (response.data.status === 'success') {
           successMessage.value = 'プロフィールが更新されました。';
@@ -233,7 +244,7 @@ export default {
       }
     };
 
-    // --- 退会ボタン ---
+    // --- 退会 ---
     const confirmDeleteAccount = () => {
       showDeleteConfirmation.value = true;
     };
@@ -243,7 +254,8 @@ export default {
     const handleDeleteAccount = async () => {
       deleteErrorMessage.value = '';
       try {
-        const response = await axios.delete('/deleteAccount');
+        // エンドポイント /api/deleteAccount、withCredentials を指定
+        const response = await axios.delete('/api/deleteAccount', { withCredentials: true });
         if (response.data.status === 'success') {
           toast.success('アカウントが削除されました。ご利用ありがとうございました。');
           router.push('/'); // ホーム画面へ
@@ -260,11 +272,11 @@ export default {
       }
     };
 
-    // --- ログアウト処理 ---
+    // --- ログアウト ---
     const handleLogout = async () => {
       try {
-        await authStore.logout(); // Piniaストアのlogoutアクション
-        router.push('/'); // ログアウト後はホーム画面に遷移
+        await authStore.logout(); // Pinia ストアの logout アクション
+        router.push('/'); // ログアウト後はホーム画面へ遷移
       } catch (err) {
         console.error('ログアウトに失敗:', err);
       }
@@ -306,7 +318,6 @@ export default {
 </script>
 
 <style scoped>
-/* （省略せずフルコード。レスポンシブ対応などは前回と同様） */
 .mypage-container {
   max-width: 600px;
   margin: 50px auto;
@@ -364,19 +375,19 @@ select {
 
 /* ボタン色 */
 .btn-primary {
-  background-color: #28a745; /* 更新など */
+  background-color: #28a745; /* 更新用 */
 }
 .btn-primary:hover {
   background-color: #218838;
 }
 .btn-secondary {
-  background-color: #17a2b8; /* ホームやお気に入りなど */
+  background-color: #17a2b8; /* ナビゲーション用（ホーム、お気に入り） */
 }
 .btn-secondary:hover {
   background-color: #117a8b;
 }
 .btn-danger {
-  background-color: #dc3545; /* 退会やログアウト */
+  background-color: #dc3545; /* 退会・ログアウト用 */
 }
 .btn-danger:hover {
   background-color: #c82333;
