@@ -90,7 +90,7 @@
         try {
           // 会員登録リクエスト
           const registerResponse = await axios.post(
-            '/register',
+            '/api/register',
             {
               username: username.value,
               email: email.value,
@@ -108,7 +108,7 @@
             // 会員登録成功
             // 自動ログインリクエスト
             const loginResponse = await axios.post(
-              '/login',
+              '/api/login',
               {
                 username: username.value,
                 password: password.value,
