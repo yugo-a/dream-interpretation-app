@@ -329,6 +329,54 @@ app.post('/api/interpret-dream', async (req, res) => {
   }
 });
 
+// お気に入り取得エンドポイント
+app.get('/api/favorites', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const result = await pool.query('SELECT * FROM favorites WHERE user_id = $1', [userId]);
+    res.json({ status: 'success', favorites: result.rows });
+  } catch (err) {
+    console.error('お気に入り取得エラー:', err);
+    res.status(500).json({ status: 'error', message: 'お気に入りの取得に失敗しました。' });
+  }
+});
+
+// お気に入り追加エンドポイント
+app.post('/api/favorites', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const { messageId } = req.body;  // クライアントから送られてくるデータ
+    const result = await pool.query(
+      'INSERT INTO favorites (user_id, message_id) VALUES ($1, $2) RETURNING id',
+      [userId, messageId]
+    );
+    res.json({ status: 'success', favorite: result.rows[0] });
+  } catch (err) {
+    console.error('お気に入り追加エラー:', err);
+    res.status(500).json({ status: 'error', message: 'お気に入り追加に失敗しました。' });
+  }
+});
+
+// お気に入り解除エンドポイント
+app.delete('/api/favorites/:id', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const favoriteId = req.params.id;
+    const result = await pool.query(
+      'DELETE FROM favorites WHERE id = $1 AND user_id = $2 RETURNING id',
+      [favoriteId, userId]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ status: 'error', message: 'お気に入りが見つかりません。' });
+    }
+    res.json({ status: 'success', message: 'お気に入りから解除しました。' });
+  } catch (err) {
+    console.error('お気に入り解除エラー:', err);
+    res.status(500).json({ status: 'error', message: 'お気に入り解除に失敗しました。' });
+  }
+});
+
+
 // 静的ファイルの提供
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
