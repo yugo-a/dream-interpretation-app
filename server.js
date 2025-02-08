@@ -345,11 +345,18 @@ app.get('/api/favorites', isAuthenticated, async (req, res) => {
 app.post('/api/favorites', isAuthenticated, async (req, res) => {
   try {
     const userId = req.session.user.id;
-    const { messageId } = req.body;  // クライアントから送られてくるデータ
+    // フロントから userMessage, aiMessage を受け取る
+    const { userMessage, aiMessage } = req.body;
+
+    // DBにINSERT
     const result = await pool.query(
-      'INSERT INTO favorites (user_id, message_id) VALUES ($1, $2) RETURNING id',
-      [userId, messageId]
+      `INSERT INTO favorites (user_id, user_message, ai_message)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [userId, userMessage, aiMessage]
     );
+
+    // 追加後のレコードを返す
     res.json({ status: 'success', favorite: result.rows[0] });
   } catch (err) {
     console.error('お気に入り追加エラー:', err);

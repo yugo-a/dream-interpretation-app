@@ -1,4 +1,3 @@
-<!-- src/components/Home.vue -->
 <template>
   <div class="home">
     <!-- ヘッダー -->
@@ -113,11 +112,23 @@ export default {
       try {
         const response = await axios.get('/favorites', { withCredentials: true });
         if (response.data.status === 'success') {
-          const favoriteIds = response.data.favorites.map(fav => fav.message_id);
-          // チャット履歴の各メッセージにお気に入り状態を設定
+          // --- ここはテーブルの構造によって変更が必要 ---
+          // もともとは favorites テーブルに message_id を持たせる前提だったが
+          // 今後は user_message, ai_message を使うので、必要に応じてこのロジックも変える
+
+          // 下記のように favorites は id, user_message, ai_message ... という形かもしれない
+          // ここでは "既に fetchFavorites() でお気に入りの id と合致しているかどうか" を
+          // チャット履歴のメッセージに反映しています。（必要に応じてご変更ください）
+
+          const favoriteRows = response.data.favorites;
+
           chatHistory.value.forEach(msg => {
             if (msg.type === 'bot') {
-              msg.isFavorite = favoriteIds.includes(msg.id);
+              // もし「AIレスポンスとuserMessage」が完全一致するかどうかで判定したい場合は
+              // そこまで実装することも可能です
+              // ここではデモとして、idが一致しているかだけで判断しています
+              // （単に message.id が DB のfavorites.id と同じであればお気に入り状態、としています）
+              msg.isFavorite = favoriteRows.some(fav => fav.id === msg.id);
             }
           });
         } else {
@@ -154,7 +165,19 @@ export default {
           }
         } else {
           // お気に入り追加
-          const response = await axios.post('/favorites', { messageId }, { withCredentials: true });
+          // --- 修正箇所ここから ---
+          // 「messageId」だけでなく、「ユーザー入力」「AIレスポンス」も送る
+          // サーバー側で 'user_message', 'ai_message' として保存するため
+          const response = await axios.post(
+            '/favorites',
+            {
+              userMessage: messageItem.userMessage, // botメッセージに紐づいたユーザー入力
+              aiMessage:   messageItem.text         // botメッセージの本文
+            },
+            { withCredentials: true }
+          );
+          // --- 修正箇所ここまで ---
+
           if (response.data.status === 'success') {
             messageItem.isFavorite = true;
             toast.success('お気に入りに追加しました。');
@@ -175,7 +198,12 @@ export default {
       if (!message.value.trim()) return;
       const userMessage = message.value.trim();
       const userMessageId = Date.now(); // ユーザーのメッセージID（クライアント生成）
-      chatHistory.value.push({ id: userMessageId, text: userMessage, type: 'user', isFavorite: false });
+      chatHistory.value.push({
+        id: userMessageId,
+        text: userMessage,
+        type: 'user',
+        isFavorite: false
+      });
       message.value = '';
       isLoading.value = true;
 
@@ -193,7 +221,17 @@ export default {
 
         if (response.data.success) {
           const { interpretation, interactionId } = response.data; // interactionIdを取得
-          chatHistory.value.push({ id: interactionId, text: interpretation, type: 'bot', isFavorite: false });
+          // --- 修正箇所ここから ---
+          // AIレスポンスにも userMessage を紐づける
+          chatHistory.value.push({
+            id: interactionId,
+            text: interpretation,
+            type: 'bot',
+            isFavorite: false,
+            userMessage: userMessage // このAIレスは userMessage に対する返答
+          });
+          // --- 修正箇所ここまで ---
+
           // お気に入り状態を反映
           if (isLoggedIn.value) {
             await fetchFavorites();

@@ -1,4 +1,3 @@
-<!-- src/components/Favorites.vue -->
 <template>
   <div class="favorites">
     <header>
@@ -73,14 +72,14 @@ export default {
 
     /**
      * お気に入りを解除する関数
-     * @param {Number} messageId
+     * @param {Number} favoriteId
      */
-    const removeFavorite = async (messageId) => {
+    const removeFavorite = async (favoriteId) => {
       try {
         // withCredentials を指定して削除リクエストを送信
-        const response = await axios.delete(`/favorites/${messageId}`, { withCredentials: true });
+        const response = await axios.delete(`/favorites/${favoriteId}`, { withCredentials: true });
         if (response.data.status === 'success') {
-          favorites.value = favorites.value.filter(item => item.id !== messageId);
+          favorites.value = favorites.value.filter(item => item.id !== favoriteId);
           toast.success('お気に入りから解除しました。');
         } else {
           toast.error(response.data.message || 'お気に入り解除に失敗しました。');
