@@ -10,22 +10,31 @@
         <div class="spinner"></div>
         <span>お気に入りデータを読み込み中...</span>
       </div>
-      
-      <!-- 読み込み完了後、お気に入りがない場合 -->
+
+      <!-- お気に入りがない場合 -->
       <div v-else-if="favorites.length === 0" class="no-favorites">
-        お気に入りに登録されたインタラクションがありません。
+        お気に入りに登録された会話はありません。
       </div>
-      
-      <!-- 読み込み完了後、お気に入りがある場合 -->
+
+      <!-- お気に入りがある場合 -->
       <div v-else class="favorites-list">
-        <div v-for="item in favorites" :key="item.id" class="favorite-card">
-          <h3>対話 #{{ item.id }}</h3>
-          <p><strong>ユーザー:</strong> {{ item.user_message }}</p>
-          <p><strong>AI:</strong> {{ item.ai_message }}</p>
+        <div v-for="fav in favorites" :key="fav.id" class="favorite-card">
+          <h3>会話ID: {{ fav.id }}</h3>
+
+          <!-- JSON化された会話をパースして表示 -->
+          <div class="conversation">
+            <div
+              v-for="(msg, idx) in parseConversation(fav.conversation_json)"
+              :key="idx"
+              :class="['chat-message', msg.type]"
+            >
+              {{ msg.text }}
+            </div>
+          </div>
+
           <button
-            :class="['btn', 'btn-danger']"
-            @click="removeFavorite(item.id)"
-            aria-label="お気に入りを解除する"
+            class="btn btn-danger"
+            @click="removeFavorite(fav.id)"
           >
             お気に入り解除
           </button>
@@ -50,12 +59,11 @@ export default {
     const toast = useToast();
 
     /**
-     * ユーザーのお気に入りアイテムを取得する関数
+     * お気に入りの一覧を取得
      */
     const fetchFavorites = async () => {
       isLoading.value = true;
       try {
-        // エンドポイントは /api/favorites とし、withCredentials を指定
         const response = await axios.get('/favorites', { withCredentials: true });
         if (response.data.status === 'success') {
           favorites.value = response.data.favorites;
@@ -71,12 +79,10 @@ export default {
     };
 
     /**
-     * お気に入りを解除する関数
-     * @param {Number} favoriteId
+     * お気に入り解除
      */
     const removeFavorite = async (favoriteId) => {
       try {
-        // withCredentials を指定して削除リクエストを送信
         const response = await axios.delete(`/favorites/${favoriteId}`, { withCredentials: true });
         if (response.data.status === 'success') {
           favorites.value = favorites.value.filter(item => item.id !== favoriteId);
@@ -91,7 +97,19 @@ export default {
     };
 
     /**
-     * 戻るボタンの機能：ホーム画面に戻る
+     * DBに保存されている conversation_json を parse
+     */
+    const parseConversation = (jsonString) => {
+      try {
+        return JSON.parse(jsonString) || [];
+      } catch (error) {
+        console.error('JSONパースエラー:', error);
+        return [];
+      }
+    };
+
+    /**
+     * 戻るボタン：ホームへ
      */
     const goBack = () => {
       router.push('/');
@@ -105,9 +123,10 @@ export default {
       favorites,
       isLoading,
       removeFavorite,
-      goBack,
+      parseConversation,
+      goBack
     };
-  },
+  }
 };
 </script>
 
@@ -139,7 +158,6 @@ header button {
   color: #fff;
   font-size: 16px;
 }
-
 header button:hover {
   background-color: #0056b3;
 }
@@ -192,20 +210,24 @@ header button:hover {
   border-radius: 10px;
   background-color: #fff;
   box-shadow: 2px 2px 12px rgba(0,0,0,0.1);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
 }
 
-.favorite-card h3 {
-  margin-bottom: 10px;
+.conversation {
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 5px;
+  height: 150px;
+  overflow-y: auto;
 }
 
-.favorite-card p {
-  margin-bottom: 10px;
+.chat-message {
+  margin: 5px 0;
 }
 
-.btn {
+.btn-danger {
+  display: inline-block;
+  margin-top: 10px;
   width: 100%;
   padding: 12px;
   color: #fff;
@@ -213,14 +235,9 @@ header button:hover {
   border-radius: 5px;
   cursor: pointer;
   font-size: 16px;
-  margin: 10px 0;
+  background-color: #dc3545;
   transition: background-color 0.3s ease;
 }
-
-.btn-danger {
-  background-color: #dc3545;
-}
-
 .btn-danger:hover {
   background-color: #c82333;
 }
@@ -230,9 +247,12 @@ header button:hover {
     flex-direction: column;
     align-items: center;
   }
-
   .favorite-card {
     width: 90%;
+  }
+  .conversation {
+    height: auto;
+    max-height: 200px;
   }
 }
 </style>
