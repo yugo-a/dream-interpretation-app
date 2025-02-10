@@ -6,14 +6,17 @@
         <h1 class="header-title">リアルタイム夢解析チャットボット</h1>
       </div>
       <div class="auth-buttons">
+        <!-- ログイン/登録ボタン -->
         <button v-if="!isLoggedIn" @click="goToLogin">ログイン</button>
         <button v-if="!isLoggedIn" @click="goToRegister">会員登録</button>
+        <!-- マイページ -->
         <button v-if="isLoggedIn" @click="goToMyPage">マイページ</button>
+        <!-- お気に入り一覧 -->
         <button v-if="isLoggedIn" @click="goToFavorites">お気に入り一覧</button>
       </div>
     </header>
 
-    <!-- チャットセクション -->
+    <!-- チャット本体 -->
     <div class="chat-container">
       <!-- AI処理中のインジケーター -->
       <div v-if="isLoading" class="loading-indicator">
@@ -28,13 +31,13 @@
           :key="msg.id"
           :class="['chat-message', msg.type]"
         >
-          <!-- ボットメッセージ -->
+          <!-- ボットメッセージのレンダリング -->
           <div v-if="msg.type === 'bot'" v-html="escapeHTML(msg.text)"></div>
-
-          <!-- ボット制限メッセージ -->
+          
+          <!-- ボット制限メッセージのレンダリング -->
           <div v-else-if="msg.type === 'bot-restriction'" v-html="msg.html"></div>
-
-          <!-- ユーザーメッセージ -->
+          
+          <!-- ユーザーメッセージのレンダリング -->
           <div v-else>{{ msg.text }}</div>
         </div>
       </div>
@@ -52,16 +55,18 @@
         <button @click="clearMessages" class="clear-button">メッセージクリア</button>
       </div>
 
-      <!-- 会話全体のお気に入り登録ボタン -->
-      <div class="favorite-conversation" v-if="isLoggedIn && !isFavorited">
-        <button @click="favoriteWholeConversation">この会話をお気に入り登録</button>
+      <!-- 会話全体お気に入りトグルボタン -->
+      <div class="favorite-conversation" v-if="isLoggedIn">
+        <button @click="toggleFavoriteConversation">
+          {{ isFavorited ? 'お気に入り登録済み' : 'お気に入り登録' }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import axios from '@/axios';
+import axios from '@/axios'; // baseURL: '/api' を設定済みのaxios
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
@@ -79,69 +84,83 @@ export default {
     const toast = useToast();
     const authStore = useAuthStore();
 
-    // ログインしているかどうか
+    // ログイン判定
     const isLoggedIn = computed(() => authStore.isLoggedIn);
 
-    // この会話が既にお気に入り登録済みかどうかをフラグで管理
-    const isFavorited = ref(false);
+    // お気に入り登録状態（会話全体）
+    const isFavorited = ref(false); 
+    // 登録されたfavoritesテーブルのレコードID
+    const favoriteId = ref(null);  
 
     /**
-     * テキストをエスケープ（XSS対策）
+     * テキストをエスケープする関数（XSS対策）
      */
-    const escapeHTML = (str) => {
-      return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-    };
+    const escapeHTML = (str) =>
+      str.replace(/&/g, '&amp;')
+         .replace(/</g, '&lt;')
+         .replace(/>/g, '&gt;');
 
     /**
-     * ログイン状態を確認
+     * ログイン状態を確認する関数
      */
     const checkLoginStatus = async () => {
       try {
         await authStore.checkLoginStatus();
-        // ここでは「既にお気に入り登録済みかどうか」を調べるロジックは任意
-        // 必要に応じてサーバーから取得して判定するなど可能
       } catch (error) {
         console.error('ログイン状態確認エラー:', error);
       }
     };
 
     /**
-     * 会話全体をお気に入り登録する
-     * - 何度も登録しないよう、一度成功したらボタンを非表示にする
+     * 会話全体を「お気に入り登録 or 解除」するトグルボタン
      */
-    const favoriteWholeConversation = async () => {
+    const toggleFavoriteConversation = async () => {
       if (!isLoggedIn.value) {
         toast.info('お気に入り登録にはログインが必要です。');
         return;
       }
+
       try {
-        const response = await axios.post('/favorites', {
-          chatHistory: chatHistory.value // 今ある全メッセージ
-        });
-        if (response.data.status === 'success') {
-          toast.success('この会話をお気に入りに登録しました！');
-          isFavorited.value = true; // 登録完了 → ボタン非表示
+        if (!isFavorited.value) {
+          // まだ登録されていない → 新規登録
+          const response = await axios.post('/favorites', {
+            chatHistory: chatHistory.value
+          });
+          if (response.data.status === 'success') {
+            toast.success('この会話をお気に入り登録しました！');
+            isFavorited.value = true;
+            favoriteId.value = response.data.favorite.id; 
+          } else {
+            toast.error(response.data.message || 'お気に入り登録に失敗しました。');
+          }
         } else {
-          toast.error(response.data.message || 'お気に入り登録に失敗しました。');
+          // 登録済み → 削除
+          if (!favoriteId.value) {
+            toast.error('お気に入りのIDが見つかりません。解除できません。');
+            return;
+          }
+          const response = await axios.delete(`/favorites/${favoriteId.value}`);
+          if (response.data.status === 'success') {
+            toast.success('お気に入りを解除しました。');
+            isFavorited.value = false;
+            favoriteId.value = null;
+          } else {
+            toast.error(response.data.message || 'お気に入り解除に失敗しました。');
+          }
         }
-      } catch (err) {
-        console.error('お気に入り追加エラー:', err);
-        toast.error('サーバーエラーが発生しました。');
+      } catch (error) {
+        console.error('お気に入り操作エラー:', error);
+        toast.error(error.response?.data?.message || 'サーバーエラーが発生しました。');
       }
     };
 
     /**
-     * メッセージ送信
+     * メッセージを送信する関数
      */
     const sendMessage = async () => {
       if (!message.value.trim()) return;
-
       const userMessage = message.value.trim();
-      const userMessageId = Date.now(); // クライアント生成ID
-      // ユーザーメッセージを履歴に追加
+      const userMessageId = Date.now(); 
       chatHistory.value.push({
         id: userMessageId,
         text: userMessage,
@@ -156,9 +175,9 @@ export default {
           { dream: userMessage },
           { withCredentials: true }
         );
+
         if (response.data.success) {
           const { interpretation, interactionId } = response.data;
-          // AIレスポンスを履歴に追加
           chatHistory.value.push({
             id: interactionId,
             text: interpretation,
@@ -171,7 +190,7 @@ export default {
             html: restrictionMessage,
             type: 'bot-restriction'
           });
-          toast.info('続きの会話には会員登録が必要です。会員登録ページに移動します。');
+          toast.info('続きの会話には会員登録が必要です。');
           router.push('/register');
         } else {
           chatHistory.value.push({
@@ -196,16 +215,17 @@ export default {
     };
 
     /**
-     * チャット履歴をクリア
+     * メッセージ履歴をクリアする関数
      */
     const clearMessages = () => {
       chatHistory.value = [];
-      // クリアしたら再び "お気に入り登録" を可能にするなら
-      // isFavorited.value = false;
+      // クリア時に再びお気に入り状態を初期化するなら
+      isFavorited.value = false;
+      favoriteId.value = null;
     };
 
     /**
-     * チャット表示を一番下にスクロール
+     * チャット履歴を下にスクロール
      */
     const scrollToBottom = () => {
       if (chatHistoryDiv.value) {
@@ -214,7 +234,7 @@ export default {
     };
 
     /**
-     * ページ遷移系
+     * ページ遷移
      */
     const goToLogin = () => router.push('/login');
     const goToRegister = () => router.push('/register');
@@ -228,21 +248,22 @@ export default {
     return {
       message,
       chatHistory,
-      isLoggedIn,
       isLoading,
+      chatHistoryDiv,
+
+      isLoggedIn,
       isFavorited,
+      favoriteId,
 
       escapeHTML,
       sendMessage,
       clearMessages,
-      favoriteWholeConversation,
+      toggleFavoriteConversation,
 
       goToLogin,
       goToRegister,
       goToMyPage,
-      goToFavorites,
-
-      chatHistoryDiv
+      goToFavorites
     };
   }
 };
@@ -273,6 +294,7 @@ header {
   margin-top: 20px;
 }
 
+/* ヘッダー右上ボタン */
 .auth-buttons {
   position: absolute;
   top: 10px;
@@ -294,6 +316,7 @@ header {
   background-color: #0056b3;
 }
 
+/* チャット枠 */
 .chat-container {
   border: 1px solid #ccc;
   border-radius: 10px;
@@ -303,6 +326,7 @@ header {
   position: relative;
 }
 
+/* チャット履歴表示 */
 .chat-history {
   height: 300px;
   overflow-y: auto;
@@ -327,6 +351,7 @@ header {
   font-weight: bold;
 }
 
+/* 入力欄+ボタン */
 .chat-input {
   display: flex;
   gap: 10px;
@@ -355,12 +380,13 @@ button:hover {
   background-color: #e0a020;
 }
 
-/* 全体をお気に入り登録するボタン */
+/* 全体をお気に入り登録ボタン */
 .favorite-conversation {
   margin-top: 10px;
   text-align: center;
 }
 
+/* AI処理中インジケーター */
 .loading-indicator {
   position: absolute;
   top: 50%;
@@ -409,6 +435,10 @@ button:hover {
   .chat-input button {
     width: 100%;
   }
+  .auth-buttons button {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
   .chat-container {
     margin-top: 10px;
     padding: 10px;
@@ -417,7 +447,7 @@ button:hover {
     height: 200px;
   }
   .chat-input {
-    flex-direction: column;
+    flex-direction: column; 
     gap: 10px;
   }
   .clear-button {
