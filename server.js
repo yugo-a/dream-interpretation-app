@@ -202,10 +202,15 @@ app.post('/api/logout', (req, res) => {
  * セッション確認エンドポイント
  */
 app.get('/api/checksession', (req, res) => {
+  // ★ キャッシュさせない
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.removeHeader('ETag'); // ExpressのETagを消す
+
   if (req.session.user) {
-    res.json({ loggedIn: true, user: req.session.user });
+    // 200で明示的に返す
+    return res.status(200).json({ loggedIn: true, user: req.session.user });
   } else {
-    res.json({ loggedIn: false });
+    return res.status(200).json({ loggedIn: false });
   }
 });
 
