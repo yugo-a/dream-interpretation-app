@@ -1,22 +1,33 @@
-// src/stores/auth.js
 import { defineStore } from 'pinia';
-import axios from '@/axios'; // カスタムインスタンスをインポート
+import axios from '@/axios'; // baseURL: '/api' を設定済みのaxios
 
+/**
+ * 認証系ストア
+ * - checkLoginStatus() でサーバーセッションを確認
+ * - login() / logout() でAPIを呼ぶ
+ */
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     isLoggedIn: false,
     user: null,
   }),
+
   actions: {
     /**
-     * ログイン状態をサーバーから確認し、ストアを更新します。
+     * サーバーから現在のセッション状態を確認し、isLoggedIn / user を更新。
      */
     async checkLoginStatus() {
       try {
-        // GET http://localhost:3000/api/checksession
-        const response = await axios.get('/checksession');
-        this.isLoggedIn = response.data.loggedIn;
-        this.user = response.data.user || null;
+        // /api/checksession にアクセスして { loggedIn: boolean, user: {...} } を取得
+        const res = await axios.get('/checksession', { withCredentials: true });
+
+        if (res.data.loggedIn) {
+          this.isLoggedIn = true;
+          this.user = res.data.user;
+        } else {
+          this.isLoggedIn = false;
+          this.user = null;
+        }
       } catch (error) {
         console.error('ログイン状態確認エラー:', error);
         this.isLoggedIn = false;
@@ -25,15 +36,11 @@ export const useAuthStore = defineStore('auth', {
     },
 
     /**
-     * ログイン処理を行います。
-     * @param {String} username - ユーザー名
-     * @param {String} password - パスワード
-     * @returns {Object} 成功・失敗の結果
+     * ログイン (サンプル)
      */
     async login(username, password) {
       try {
-        // POST http://localhost:3000/api/login
-        const response = await axios.post('/login', { username, password });
+        const response = await axios.post('/login', { username, password }, { withCredentials: true });
         if (response.data.status === 'success') {
           this.isLoggedIn = true;
           this.user = response.data.user;
@@ -45,23 +52,22 @@ export const useAuthStore = defineStore('auth', {
         console.error('ログインエラー:', error);
         return {
           success: false,
-          message: error.response?.data?.message || 'サーバーエラーが発生しました。',
+          message: error.response?.data?.message || 'サーバーエラーが発生しました。'
         };
       }
     },
 
     /**
-     * ログアウト処理を行います。
+     * ログアウト
      */
     async logout() {
       try {
-        // POST http://localhost:3000/api/logout
-        const response = await axios.post('/logout');
+        const response = await axios.post('/logout', {}, { withCredentials: true });
         if (response.data.status === 'success') {
           this.isLoggedIn = false;
           this.user = null;
         } else {
-          console.error('ログアウトに失敗しました:', response.data.message);
+          console.error('ログアウトに失敗:', response.data.message);
         }
       } catch (error) {
         console.error('ログアウトエラー:', error);
@@ -69,16 +75,14 @@ export const useAuthStore = defineStore('auth', {
     },
 
     /**
-     * プロフィールを更新する
-     * @param {Object} updatedData - 更新されたユーザーデータ
+     * ユーザープロフィール更新 (例)
      */
     async updateUserProfile(updatedData) {
       try {
-        // POST http://localhost:3000/api/updateUser
         const response = await axios.post('/updateUser', updatedData, {
           headers: { 'Content-Type': 'application/json' },
+          withCredentials: true
         });
-
         if (response.data.status === 'success') {
           this.user = response.data.user;
           return { success: true };
@@ -89,7 +93,7 @@ export const useAuthStore = defineStore('auth', {
         console.error('プロフィール更新エラー:', error);
         return {
           success: false,
-          message: error.response?.data?.message || 'サーバーエラーが発生しました。',
+          message: error.response?.data?.message || 'サーバーエラーが発生しました。'
         };
       }
     },

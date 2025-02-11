@@ -6,12 +6,12 @@
         <h1 class="header-title">リアルタイム夢解析チャットボット</h1>
       </div>
       <div class="auth-buttons">
-        <!-- ログイン/登録ボタン -->
+        <!-- 未ログインのときだけ表示 -->
         <button v-if="!isLoggedIn" @click="goToLogin">ログイン</button>
         <button v-if="!isLoggedIn" @click="goToRegister">会員登録</button>
-        <!-- マイページ -->
+
+        <!-- ログインのときだけ表示 -->
         <button v-if="isLoggedIn" @click="goToMyPage">マイページ</button>
-        <!-- お気に入り一覧 -->
         <button v-if="isLoggedIn" @click="goToFavorites">お気に入り一覧</button>
       </div>
     </header>
@@ -31,13 +31,13 @@
           :key="msg.id"
           :class="['chat-message', msg.type]"
         >
-          <!-- ボットメッセージのレンダリング -->
+          <!-- ボットメッセージ -->
           <div v-if="msg.type === 'bot'" v-html="escapeHTML(msg.text)"></div>
           
-          <!-- ボット制限メッセージのレンダリング -->
+          <!-- ボット制限メッセージ -->
           <div v-else-if="msg.type === 'bot-restriction'" v-html="msg.html"></div>
           
-          <!-- ユーザーメッセージのレンダリング -->
+          <!-- ユーザーメッセージ -->
           <div v-else>{{ msg.text }}</div>
         </div>
       </div>
@@ -55,7 +55,7 @@
         <button @click="clearMessages" class="clear-button">メッセージクリア</button>
       </div>
 
-      <!-- 会話全体お気に入りトグルボタン -->
+      <!-- 会話全体のお気に入りトグルボタン(登録/解除) -->
       <div class="favorite-conversation" v-if="isLoggedIn">
         <button @click="toggleFavoriteConversation">
           {{ isFavorited ? 'お気に入り登録済み' : 'お気に入り登録' }}
@@ -72,95 +72,62 @@ import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import { useAuthStore } from '@/stores/auth';
 
+/**
+ * Home コンポーネント
+ * - ブラウザ再読み込み時、onMountedで checkLoginStatus() を呼び出し、
+ *   サーバーセッションがあれば isLoggedIn を true にする
+ * - 会話全体をお気に入りに登録 or 解除するトグルボタンを実装
+ */
 export default {
   name: 'Home',
   setup() {
+    const router = useRouter();
+    const toast = useToast();
+    const authStore = useAuthStore();
+
+    // ログイン状態 (Piniaストアから取得)
+    const isLoggedIn = computed(() => authStore.isLoggedIn);
+
+    // チャット関連ステート
     const message = ref('');
     const chatHistory = ref([]);
     const isLoading = ref(false);
     const chatHistoryDiv = ref(null);
 
-    const router = useRouter();
-    const toast = useToast();
-    const authStore = useAuthStore();
-
-    // ログイン判定
-    const isLoggedIn = computed(() => authStore.isLoggedIn);
-
-    // お気に入り登録状態（会話全体）
-    const isFavorited = ref(false); 
-    // 登録されたfavoritesテーブルのレコードID
-    const favoriteId = ref(null);  
+    // 「会話全体」お気に入り管理
+    const isFavorited = ref(false);
+    const favoriteId = ref(null); // DBにINSERT後のID
 
     /**
-     * テキストをエスケープする関数（XSS対策）
+     * テキストをXSS対策エスケープ
      */
     const escapeHTML = (str) =>
-      str.replace(/&/g, '&amp;')
-         .replace(/</g, '&lt;')
-         .replace(/>/g, '&gt;');
+      str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 
     /**
-     * ログイン状態を確認する関数
+     * マウント時にサーバーのセッションをチェック
      */
-    const checkLoginStatus = async () => {
+    onMounted(async () => {
       try {
         await authStore.checkLoginStatus();
-      } catch (error) {
-        console.error('ログイン状態確認エラー:', error);
+      } catch (err) {
+        console.error('ログイン状態確認エラー:', err);
       }
-    };
+    });
 
     /**
-     * 会話全体を「お気に入り登録 or 解除」するトグルボタン
-     */
-    const toggleFavoriteConversation = async () => {
-      if (!isLoggedIn.value) {
-        toast.info('お気に入り登録にはログインが必要です。');
-        return;
-      }
-
-      try {
-        if (!isFavorited.value) {
-          // まだ登録されていない → 新規登録
-          const response = await axios.post('/favorites', {
-            chatHistory: chatHistory.value
-          });
-          if (response.data.status === 'success') {
-            toast.success('この会話をお気に入り登録しました！');
-            isFavorited.value = true;
-            favoriteId.value = response.data.favorite.id; 
-          } else {
-            toast.error(response.data.message || 'お気に入り登録に失敗しました。');
-          }
-        } else {
-          // 登録済み → 削除
-          if (!favoriteId.value) {
-            toast.error('お気に入りのIDが見つかりません。解除できません。');
-            return;
-          }
-          const response = await axios.delete(`/favorites/${favoriteId.value}`);
-          if (response.data.status === 'success') {
-            toast.success('お気に入りを解除しました。');
-            isFavorited.value = false;
-            favoriteId.value = null;
-          } else {
-            toast.error(response.data.message || 'お気に入り解除に失敗しました。');
-          }
-        }
-      } catch (error) {
-        console.error('お気に入り操作エラー:', error);
-        toast.error(error.response?.data?.message || 'サーバーエラーが発生しました。');
-      }
-    };
-
-    /**
-     * メッセージを送信する関数
+     * メッセージを送信
      */
     const sendMessage = async () => {
       if (!message.value.trim()) return;
+
       const userMessage = message.value.trim();
-      const userMessageId = Date.now(); 
+      const userMessageId = Date.now();
+
+      // ユーザーのメッセージを追加
       chatHistory.value.push({
         id: userMessageId,
         text: userMessage,
@@ -178,6 +145,7 @@ export default {
 
         if (response.data.success) {
           const { interpretation, interactionId } = response.data;
+          // AIレスポンスを追加
           chatHistory.value.push({
             id: interactionId,
             text: interpretation,
@@ -215,13 +183,56 @@ export default {
     };
 
     /**
-     * メッセージ履歴をクリアする関数
+     * メッセージ履歴クリア
+     * - クリア時にお気に入り状態もリセット
      */
     const clearMessages = () => {
       chatHistory.value = [];
-      // クリア時に再びお気に入り状態を初期化するなら
       isFavorited.value = false;
       favoriteId.value = null;
+    };
+
+    /**
+     * 会話全体のお気に入り登録/解除
+     */
+    const toggleFavoriteConversation = async () => {
+      if (!isLoggedIn.value) {
+        toast.info('お気に入り登録にはログインが必要です。');
+        return;
+      }
+
+      try {
+        if (!isFavorited.value) {
+          // まだ登録されていない → 新規登録
+          const response = await axios.post('/favorites', {
+            chatHistory: chatHistory.value
+          });
+          if (response.data.status === 'success') {
+            toast.success('この会話をお気に入りに登録しました！');
+            isFavorited.value = true;
+            favoriteId.value = response.data.favorite.id;
+          } else {
+            toast.error(response.data.message || 'お気に入り登録に失敗しました。');
+          }
+        } else {
+          // 登録済み → 削除
+          if (!favoriteId.value) {
+            toast.error('お気に入りIDが不明のため解除できません。');
+            return;
+          }
+          const response = await axios.delete(`/favorites/${favoriteId.value}`);
+          if (response.data.status === 'success') {
+            toast.success('お気に入りを解除しました。');
+            isFavorited.value = false;
+            favoriteId.value = null;
+          } else {
+            toast.error(response.data.message || 'お気に入り解除に失敗しました。');
+          }
+        }
+      } catch (error) {
+        console.error('お気に入り操作エラー:', error);
+        toast.error(error.response?.data?.message || 'サーバーエラーが発生しました。');
+      }
     };
 
     /**
@@ -234,32 +245,32 @@ export default {
     };
 
     /**
-     * ページ遷移
+     * 画面遷移
      */
     const goToLogin = () => router.push('/login');
     const goToRegister = () => router.push('/register');
     const goToMyPage = () => router.push('/mypage');
     const goToFavorites = () => router.push('/favorites');
 
-    onMounted(() => {
-      checkLoginStatus();
-    });
-
     return {
+      // State
       message,
       chatHistory,
       isLoading,
       chatHistoryDiv,
 
-      isLoggedIn,
+      // お気に入り用
       isFavorited,
       favoriteId,
 
+      // Computed
+      isLoggedIn,
+
+      // Methods
       escapeHTML,
       sendMessage,
       clearMessages,
       toggleFavoriteConversation,
-
       goToLogin,
       goToRegister,
       goToMyPage,
@@ -294,7 +305,7 @@ header {
   margin-top: 20px;
 }
 
-/* ヘッダー右上ボタン */
+/* ヘッダー右上のボタン */
 .auth-buttons {
   position: absolute;
   top: 10px;
@@ -316,7 +327,7 @@ header {
   background-color: #0056b3;
 }
 
-/* チャット枠 */
+/* チャットコンテナ */
 .chat-container {
   border: 1px solid #ccc;
   border-radius: 10px;
@@ -326,7 +337,35 @@ header {
   position: relative;
 }
 
-/* チャット履歴表示 */
+/* AI処理中のインジケーター */
+.loading-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 20px 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 2s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* チャット履歴 */
 .chat-history {
   height: 300px;
   overflow-y: auto;
@@ -351,7 +390,7 @@ header {
   font-weight: bold;
 }
 
-/* 入力欄+ボタン */
+/* 入力欄 */
 .chat-input {
   display: flex;
   gap: 10px;
@@ -380,38 +419,10 @@ button:hover {
   background-color: #e0a020;
 }
 
-/* 全体をお気に入り登録ボタン */
+/* お気に入りトグルボタン */
 .favorite-conversation {
   margin-top: 10px;
   text-align: center;
-}
-
-/* AI処理中インジケーター */
-.loading-indicator {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(255, 255, 255, 0.9);
-  padding: 20px 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-}
-.spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  animation: spin 2s linear infinite;
-}
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 
 /* スマホ向け */
@@ -447,7 +458,7 @@ button:hover {
     height: 200px;
   }
   .chat-input {
-    flex-direction: column; 
+    flex-direction: column;
     gap: 10px;
   }
   .clear-button {
