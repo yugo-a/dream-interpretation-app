@@ -8,6 +8,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
 import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple'; // ← 重要: PostgreSQLセッションストア
 import axios from 'axios';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
@@ -20,6 +21,17 @@ import pool from './db.js';
 dotenv.config();
 
 const app = express();
+
+// PostgreSQLセッションストアを初期化
+const PgSession = connectPgSimple(session);
+
+// Production判定（Herokuでデプロイ時）
+const isProduction = process.env.NODE_ENV === 'production';
+
+// リバースプロキシを信用 (Heroku の https対応)
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
 
 // __dirname と __filename の代替を設定（ESMではこれらは未定義）
 const __filename = fileURLToPath(import.meta.url);
@@ -39,19 +51,33 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// セッション設定
+/**
+ * セッション設定
+ * - connect-pg-simple を使用して Postgres 上にセッションを永続化
+ * - cookie: { secure, sameSite } を本番環境と開発環境で切り替え
+ */
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your_secret_key',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false } // HTTPS を使用する場合は true に
+  store: new PgSession({
+    pool,                 // 既存の pg Pool を使う
+    tableName: 'session'  // セッション用テーブル名（任意）
+  }),
+  cookie: {
+    secure: isProduction,  // 本番: HTTPS のみクッキー送信
+    sameSite: 'none',      // クロスサイトでもクッキーを送る場合
+    maxAge: 1000 * 60 * 60 * 24 // セッション有効期限(例:24h)
+  }
 }));
 
 app.use(express.json());
 
 // CORS設定（必要に応じて調整）
 app.use(cors({
-  origin: 'http://localhost:8080', // フロントエンドのURLに置き換える
+  origin: isProduction
+    ? 'https://YOUR_HEROKU_APP_NAME.herokuapp.com' // 本番URLに置き換え
+    : 'http://localhost:8080',                    // 開発URL
   credentials: true,
 }));
 
@@ -99,7 +125,7 @@ app.get('/init', async (req, res) => {
       );
     `);
 
-    // ▼もしfavoritesテーブルもinitで作りたい場合はここで作成
+    // ▼もし favorites テーブルも init で作りたい場合
     // await pool.query(`
     //   CREATE TABLE IF NOT EXISTS favorites (
     //     id SERIAL PRIMARY KEY,
@@ -158,6 +184,7 @@ app.post('/api/login', async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({ status: 'error', message: 'ユーザー名またはパスワードが正しくありません。' });
     }
+    // セッションにユーザー情報を保存
     req.session.user = {
       id: user.id,
       username: user.username,
@@ -193,21 +220,21 @@ app.post('/api/logout', (req, res) => {
       console.error('セッション破棄エラー:', err);
       return res.status(500).json({ status: 'error', message: 'ログアウトに失敗しました。' });
     }
-    res.clearCookie('connect.sid');
+    res.clearCookie('connect.sid'); // セッションIDクッキーのクリア
     res.json({ status: 'success', message: 'ログアウトしました。' });
   });
 });
 
 /**
  * セッション確認エンドポイント
+ * - キャッシュ無効化
  */
 app.get('/api/checksession', (req, res) => {
-  // ★ キャッシュさせない
+  // キャッシュをさせない (304 回避)
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.removeHeader('ETag'); // ExpressのETagを消す
+  res.removeHeader('ETag');
 
   if (req.session.user) {
-    // 200で明示的に返す
     return res.status(200).json({ loggedIn: true, user: req.session.user });
   } else {
     return res.status(200).json({ loggedIn: false });
@@ -307,8 +334,7 @@ app.post('/api/interpret-dream', async (req, res) => {
       messages: [
         {
           role: 'system',
-          content:
-            'あなたは夢を解釈するアシスタントです。ユーザーの夢の内容に対して簡潔に意味を説明してください。'
+          content: 'あなたは夢を解釈するアシスタントです。ユーザーの夢の内容に対して簡潔に意味を説明してください。'
         },
         {
           role: 'user',
