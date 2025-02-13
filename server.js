@@ -76,7 +76,7 @@ app.use(express.json());
 // CORS設定（必要に応じて調整）
 app.use(cors({
   origin: isProduction
-    ? 'https://YOUR_HEROKU_APP_NAME.herokuapp.com' // 本番URLに置き換え
+    ? 'https://immense-woodland-88214-41c7bcb5f709.herokuapp.com' // 本番URLに置き換え
     : 'http://localhost:8080',                    // 開発URL
   credentials: true,
 }));
