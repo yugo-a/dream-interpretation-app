@@ -53,21 +53,20 @@ const transporter = nodemailer.createTransport({
 
 /**
  * セッション設定
- * - connect-pg-simple を使用して Postgres 上にセッションを永続化
- * - cookie: { secure, sameSite } を本番環境と開発環境で切り替え
  */
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your_secret_key',
   resave: false,
   saveUninitialized: false,
   store: new PgSession({
-    pool,                 // 既存の pg Pool を使う
-    tableName: 'session'  // セッション用テーブル名（任意）
+    pool,
+    tableName: 'session',
+    createTableIfMissing: true
   }),
   cookie: {
-    secure: isProduction,  // 本番: HTTPS のみクッキー送信
-    sameSite: 'none',      // クロスサイトでもクッキーを送る場合
-    maxAge: 1000 * 60 * 60 * 24 // セッション有効期限(例:24h)
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: 1000 * 60 * 60 * 24
   }
 }));
 
