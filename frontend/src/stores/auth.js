@@ -18,8 +18,9 @@ export const useAuthStore = defineStore('auth', {
      */
     async checkLoginStatus() {
       try {
+        // /api/checksession にアクセスして { loggedIn: boolean, user: {...} } を取得
         const res = await axios.get('/checksession', { withCredentials: true });
-        console.log('checkLoginStatus response:', res.data); // ← デバッグ用
+
         if (res.data.loggedIn) {
           this.isLoggedIn = true;
           this.user = res.data.user;
@@ -27,7 +28,6 @@ export const useAuthStore = defineStore('auth', {
           this.isLoggedIn = false;
           this.user = null;
         }
-        console.log('authStore state after check:', { isLoggedIn: this.isLoggedIn, user: this.user });
       } catch (error) {
         console.error('ログイン状態確認エラー:', error);
         this.isLoggedIn = false;

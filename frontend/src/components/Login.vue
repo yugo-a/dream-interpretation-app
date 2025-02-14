@@ -45,10 +45,9 @@
 </template>
 
 <script>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-
 
 export default {
   name: 'Login',
@@ -59,6 +58,14 @@ export default {
     const isLoading = ref(false);
     const router = useRouter();
     const authStore = useAuthStore();
+
+    // 既にログイン済みならホームへリダイレクト
+    onMounted(async () => {
+      await authStore.checkLoginStatus();
+      if (authStore.isLoggedIn) {
+        router.push('/');
+      }
+    });
 
     /**
      * ログイン処理を行う関数
