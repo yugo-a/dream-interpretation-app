@@ -230,10 +230,15 @@ app.post('/api/logout', (req, res) => {
  * - キャッシュ無効化
  */
 app.get('/api/checksession', (req, res) => {
-  // キャッシュをさせない (304 回避)
+  // ①セッション情報をコンソールで出力
+  console.log('=== /api/checksession ===');
+  console.log('Current session object:', req.session);
+
+  // ②キャッシュ無効化（既に書いてあるならOK）
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.removeHeader('ETag');
 
+  // ③返却ロジック
   if (req.session.user) {
     return res.status(200).json({ loggedIn: true, user: req.session.user });
   } else {
