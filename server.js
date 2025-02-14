@@ -429,7 +429,14 @@ app.delete('/api/favorites/:id', isAuthenticated, async (req, res) => {
 });
 
 // 静的ファイルの提供
-app.use(express.static(path.join(__dirname, 'frontend/dist')));
+app.use(express.static(path.join(__dirname, 'frontend/dist'), {
+  maxAge: 0,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // ルートをフロントに任せる
 app.get('*', (req, res) => {
