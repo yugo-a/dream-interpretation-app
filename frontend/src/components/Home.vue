@@ -304,8 +304,10 @@ header {
   /* 必要に応じて余白やその他スタイルを追加 */
 }
 .header-title {
-  margin: 0; /* 不要な上下の余白をリセット */
-  /* 必要に応じてフォントサイズや色の調整 */
+  margin: 0;
+  white-space: nowrap;       
+  overflow: hidden;          
+  text-overflow: ellipsis;   
 }
 
 /* 認証ボタン部分 */
