@@ -324,6 +324,8 @@ header {
   color: #fff;
   font-size: 16px;
   min-width: 120px;
+  font-weight: normal; /* ここで太字にならないように指定 */
+  white-space: nowrap; /* 長いテキストの改行を防止 */
 }
 
 .auth-buttons button:hover {
