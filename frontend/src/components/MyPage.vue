@@ -371,11 +371,13 @@ select {
   margin-bottom: 10px;
   text-align: center;
   display: inline-block;
+  box-sizing: border-box;
+  font-weight: normal; /* すべて同じ太さに */
 }
 
 /* ボタン色 */
 .btn-primary {
-  background-color: #28a745; /* 更新用 */
+  background-color: #28a745; /* プロフィール更新用 */
 }
 .btn-primary:hover {
   background-color: #218838;
@@ -433,15 +435,22 @@ select {
   background-color: #5a6268;
 }
 
-/* 追加: ナビゲーションリンクのコンテナ */
+/* ナビゲーションリンク（ホーム・お気に入り・ログアウト）のコンテナ */
 .navigation-links {
   margin-top: 30px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.nav-link {
-  text-decoration: none;
+
+/* ナビゲーションリンク内のボタン（router-link や button）をすべてブロック表示にして統一 */
+.navigation-links .btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
   text-align: center;
 }
 
