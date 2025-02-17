@@ -456,6 +456,12 @@ button:hover {
     margin-bottom: 10px;
   }
   
+  /* スマホではタイトルは2行に折り返し可能にする */
+  .header-title {
+    white-space: normal;
+    text-overflow: unset;
+  }
+  
   .auth-buttons {
     flex-direction: column;
     gap: 10px;
