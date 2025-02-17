@@ -290,29 +290,31 @@ export default {
 * {
   box-sizing: border-box;
 }
+
+/* ヘッダー全体 */
 header {
-  text-align: left;
+  display: flex;
+  justify-content: space-between; /* 左：タイトル、右：認証ボタン */
+  align-items: center;
   margin-bottom: 20px;
-  position: relative;
 }
 
+/* タイトル部分 */
 .header-title-container {
-  margin-bottom: 20px;
+  /* 必要に応じて余白やその他スタイルを追加 */
 }
-
 .header-title {
-  margin-left: 10px;
-  margin-top: 20px;
+  margin: 0; /* 不要な上下の余白をリセット */
+  /* 必要に応じてフォントサイズや色の調整 */
 }
 
-/* ヘッダー右上のボタン */
+/* 認証ボタン部分 */
 .auth-buttons {
-  position: absolute;
-  top: 10px;
-  right: 10px;
   display: flex;
   gap: 10px;
+  /* absolute指定は削除し、flexレイアウトで整列 */
 }
+
 .auth-buttons button {
   padding: 10px 15px;
   border: none;
@@ -323,6 +325,7 @@ header {
   font-size: 16px;
   min-width: 120px;
 }
+
 .auth-buttons button:hover {
   background-color: #0056b3;
 }
@@ -352,6 +355,7 @@ header {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   z-index: 10;
 }
+
 .spinner {
   border: 4px solid #f3f3f3;
   border-top: 4px solid #3498db;
@@ -360,6 +364,7 @@ header {
   height: 24px;
   animation: spin 2s linear infinite;
 }
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -375,16 +380,20 @@ header {
   border-radius: 5px;
   background-color: #fff;
 }
+
 .chat-message {
   margin: 10px 0;
   position: relative;
 }
+
 .chat-message.user {
   text-align: right;
 }
+
 .chat-message.bot {
   text-align: left;
 }
+
 .chat-message.bot-restriction {
   text-align: center;
   font-weight: bold;
@@ -396,12 +405,14 @@ header {
   gap: 10px;
   align-items: center;
 }
+
 input[type='text'] {
   flex: 1;
   padding: 15px;
   border-radius: 5px;
   border: 1px solid #ccc;
 }
+
 button {
   padding: 15px;
   border: none;
@@ -409,12 +420,15 @@ button {
   cursor: pointer;
   font-size: 16px;
 }
+
 button:hover {
   background-color: #ddd;
 }
+
 .clear-button {
   background-color: #f0c040;
 }
+
 .clear-button:hover {
   background-color: #e0a020;
 }
@@ -431,36 +445,45 @@ button:hover {
     max-width: 100%;
     padding: 10px;
   }
+  
   header {
+    flex-direction: column;
+    align-items: center; /* ヘッダー全体を中央揃え */
     margin-bottom: 10px;
   }
+  
   .auth-buttons {
-    position: static;
-    display: flex;
     flex-direction: column;
     gap: 10px;
-    align-items: flex-start;
+    align-items: center; /* ボタンを中央揃え */
+    margin-top: 10px;
   }
+  
   .auth-buttons button,
   .chat-input input[type='text'],
   .chat-input button {
     width: 100%;
   }
+  
   .auth-buttons button {
     padding: 8px 10px;
     font-size: 14px;
   }
+  
   .chat-container {
     margin-top: 10px;
     padding: 10px;
   }
+  
   .chat-history {
     height: 200px;
   }
+  
   .chat-input {
     flex-direction: column;
     gap: 10px;
   }
+  
   .clear-button {
     width: 100%;
   }
