@@ -150,12 +150,31 @@ app.get('/init', async (req, res) => {
  */
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
+
+  // メールアドレス形式のチェック
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ status: 'error', message: '無効なメールアドレス形式です。' });
+  }
+
+  // 既に登録済みのメールアドレスがないかチェック
+  try {
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rowCount > 0) {
+      return res.status(400).json({ status: 'error', message: '登録済みです。' });
+    }
+  } catch (error) {
+    console.error('Error checking email:', error);
+    return res.status(500).json({ status: 'error', message: 'サーバーエラーが発生しました。' });
+  }
+
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
+    // role カラムは存在しないため、RETURNING句から除外
     const result = await pool.query(
       `INSERT INTO users (username, email, password)
        VALUES ($1, $2, $3)
-       RETURNING id, username, email, age, gender, stress, "dreamTheme", role, created_at;`,
+       RETURNING id, username, email, age, gender, stress, "dreamTheme", created_at;`,
       [username, email, hashedPassword]
     );
     res.json({ status: 'success', user: result.rows[0] });
