@@ -366,6 +366,78 @@ app.post('/api/changePassword', isAuthenticated, async (req, res) => {
   }
 });
 
+app.post('/api/passwordResetRequest', async (req, res) => {
+  const { username, email } = req.body;
+  try {
+    // ユーザー情報を確認
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE username = $1 AND email = $2',
+      [username, email]
+    );
+    if (userResult.rowCount === 0) {
+      return res.status(400).json({ status: 'error', message: 'ユーザー名とメールアドレスの組み合わせが正しくありません。' });
+    }
+    const userId = userResult.rows[0].id;
+
+    // パスワード再設定トークンの生成
+    const token = crypto.randomBytes(32).toString('hex');
+    // 有効期限を現在時刻の10分後に設定
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // トークンを password_resets テーブルに保存
+    await pool.query(
+      `INSERT INTO password_resets (user_id, token, expires_at)
+       VALUES ($1, $2, $3)`,
+      [userId, token, expiresAt]
+    );
+
+    // ※実際にはメール送信機能でユーザーにリンクを送信する
+    // 例: resetLink = https://your-domain.com/password-reset/${token}
+    const resetLink = `https://immense-woodland-88214-41c7bcb5f709.herokuapp.com/password-reset/${token}`;
+    console.log(`パスワード再設定リンク: ${resetLink}`);
+    // ここで nodemailer 等を用いてメール送信処理を実装してください
+
+    res.json({ status: 'success', message: 'パスワード再設定用リンクを送信しました。' });
+  } catch (error) {
+    console.error('パスワード再設定リクエストエラー:', error);
+    res.status(500).json({ status: 'error', message: 'パスワード再設定リクエスト中にエラーが発生しました。' });
+  }
+});
+
+app.post('/api/passwordReset/:resetKey', async (req, res) => {
+  const { resetKey } = req.params;
+  const { newPassword } = req.body;
+
+  try {
+    // トークン情報を取得
+    const tokenResult = await pool.query(
+      'SELECT user_id, expires_at FROM password_resets WHERE token = $1',
+      [resetKey]
+    );
+    if (tokenResult.rowCount === 0) {
+      return res.status(400).json({ status: 'error', message: '無効なトークンです。' });
+    }
+    const { user_id, expires_at } = tokenResult.rows[0];
+    // 有効期限チェック
+    if (new Date() > expires_at) {
+      return res.status(400).json({ status: 'error', message: 'トークンの有効期限が切れています。' });
+    }
+
+    // 新しいパスワードのハッシュを生成
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    // ユーザーのパスワードを更新
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, user_id]);
+    // 使用済みトークンは削除
+    await pool.query('DELETE FROM password_resets WHERE token = $1', [resetKey]);
+
+    res.json({ status: 'success', message: 'パスワードが再設定されました。' });
+  } catch (error) {
+    console.error('パスワード再設定エラー:', error);
+    res.status(500).json({ status: 'error', message: 'パスワード再設定中にエラーが発生しました。' });
+  }
+});
+
+
 
 // ======== AI解析の実装 ========
 

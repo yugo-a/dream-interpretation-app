@@ -38,6 +38,11 @@
     </form>
 
     <p>
+      パスワードを忘れた方は
+      <router-link to="/password-reset-request">こちら</router-link>
+    </p>
+    
+    <p>
       アカウントをお持ちでないですか？
       <router-link to="/register">会員登録はこちら</router-link>
     </p>
