@@ -334,6 +334,39 @@ app.delete('/api/deleteAccount', isAuthenticated, async (req, res) => {
   }
 });
 
+/**
+ * パスワード変更エンドポイント
+ */
+app.post('/api/changePassword', isAuthenticated, async (req, res) => {
+  const userId = req.session.user.id;
+  const { currentPassword, newPassword } = req.body;
+
+  try {
+    // ユーザーの現在のパスワードを取得
+    const result = await pool.query('SELECT password FROM users WHERE id = $1', [userId]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ status: 'error', message: 'ユーザーが見つかりません。' });
+    }
+    const user = result.rows[0];
+
+    // 現在のパスワードが正しいか確認
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ status: 'error', message: '現在のパスワードが正しくありません。' });
+    }
+
+    // 新しいパスワードのハッシュを作成して更新
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, userId]);
+
+    res.json({ status: 'success', message: 'パスワードが変更されました。' });
+  } catch (error) {
+    console.error('パスワード変更エラー:', error);
+    res.status(500).json({ status: 'error', message: 'パスワード変更中にエラーが発生しました。' });
+  }
+});
+
+
 // ======== AI解析の実装 ========
 
 // OpenAI 初期化
