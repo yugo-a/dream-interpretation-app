@@ -117,6 +117,8 @@
     <div class="navigation-links">
       <!-- ホーム画面へのリンク -->
       <router-link class="btn btn-secondary nav-link" to="/">ホームへ戻る</router-link>
+      <!-- パスワード変更へのリンク -->
+      <router-link class="btn btn-secondary nav-link" to="/change-password">パスワード変更</router-link>
       <!-- お気に入り一覧へのリンク -->
       <router-link class="btn btn-secondary nav-link" to="/favorites">お気に入り一覧</router-link>
       <!-- ログアウトボタン -->
