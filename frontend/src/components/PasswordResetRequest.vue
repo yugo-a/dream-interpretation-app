@@ -38,7 +38,7 @@ export default {
       isLoading.value = true;
       try {
         const response = await axios.post(
-          '/api/passwordResetRequest',
+          '/passwordResetRequest',
           { username: username.value, email: email.value },
           { headers: { 'Content-Type': 'application/json' }, withCredentials: true }
         );
