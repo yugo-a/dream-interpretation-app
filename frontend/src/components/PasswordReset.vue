@@ -52,7 +52,7 @@ export default {
       isLoading.value = true;
       try {
         const response = await axios.post(
-          `/api/passwordReset/${resetKey}`,
+          `/passwordReset/${resetKey}`,
           { newPassword: newPassword.value },
           { headers: { 'Content-Type': 'application/json' }, withCredentials: true }
         );
