@@ -571,3 +571,30 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+
+// テストメール送信用エンドポイントの例
+app.get('/api/test-email', async (req, res) => {
+  const recipientEmail = 'your-test-address@example.com';
+  const mailOptions = {
+    from: process.env.EMAIL, // 送信元は環境変数から取得
+    to: recipientEmail,
+    subject: 'テストメール送信',
+    text: 'これはテストメールです。'
+  };
+
+  // 送信前のログ出力
+  console.log('送信元:', process.env.EMAIL);
+  console.log('送信先:', recipientEmail);
+  console.log('件名:', mailOptions.subject);
+  console.log('本文:', mailOptions.text);
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('メール送信成功:', info);
+    res.json({ status: 'success', message: 'テストメールを送信しました。', info });
+  } catch (error) {
+    console.error('メール送信エラー:', error);
+    res.status(500).json({ status: 'error', message: 'メール送信に失敗しました。', error });
+  }
+});
