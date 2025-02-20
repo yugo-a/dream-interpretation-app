@@ -25,11 +25,17 @@
 
       <!-- チャット履歴 -->
       <div class="chat-history" ref="chatHistoryDiv">
-        <div v-for="msg in chatHistory" :key="msg.id" :class="['chat-message', msg.type]">
+        <div
+          v-for="msg in chatHistory"
+          :key="msg.id"
+          :class="['chat-message', msg.type]"
+        >
           <!-- ボットメッセージ -->
           <div v-if="msg.type === 'bot'" v-html="escapeHTML(msg.text)"></div>
+          
           <!-- ボット制限メッセージ -->
           <div v-else-if="msg.type === 'bot-restriction'" v-html="msg.html"></div>
+          
           <!-- ユーザーメッセージ -->
           <div v-else>{{ msg.text }}</div>
         </div>
@@ -42,9 +48,9 @@
           v-model="message"
           @keyup.enter="sendMessage"
           placeholder="あなたの夢を教えてください..."
-          :disabled="isLoading"
+          :disabled="isRestricted || isLoading"
         />
-        <button @click="sendMessage" :disabled="isLoading">送信</button>
+        <button @click="sendMessage" :disabled="isRestricted || isLoading">送信</button>
         <button @click="clearMessages" class="clear-button">メッセージクリア</button>
       </div>
 
@@ -85,10 +91,15 @@ export default {
     const isFavorited = ref(false);
     const favoriteId = ref(null);
 
-    // 未ログインの場合、制限メッセージを1回だけ表示するためのフラグ
+    // 未ログイン状態で制限メッセージを一度だけ表示するフラグ
     const hasShownRestriction = ref(false);
 
-    // XSS対策エスケープ関数
+    // 入力を無効にするかどうか（未ログインかつ制限メッセージ表示済みなら無効）
+    const isRestricted = computed(() => !isLoggedIn.value && hasShownRestriction.value);
+
+    /**
+     * XSS対策エスケープ関数
+     */
     const escapeHTML = (str) =>
       str
         .replace(/&/g, '&amp;')
@@ -109,7 +120,7 @@ export default {
       const userMessage = message.value.trim();
       const userMessageId = Date.now();
 
-      // ユーザーメッセージをチャット履歴に追加
+      // ユーザーメッセージを追加
       chatHistory.value.push({
         id: userMessageId,
         text: userMessage,
@@ -149,7 +160,7 @@ export default {
           });
         }
 
-        // ログイン前の場合、AIのボットメッセージが2件以上なら制限メッセージを追加（一度だけ）
+        // 未ログイン状態でボットメッセージが2件以上の場合、制限メッセージを追加（1回のみ）
         if (!isLoggedIn.value && !hasShownRestriction.value) {
           const botMessagesCount = chatHistory.value.filter(msg => msg.type === 'bot').length;
           if (botMessagesCount >= 2) {
@@ -188,7 +199,6 @@ export default {
         toast.info('お気に入り登録にはログインが必要です。');
         return;
       }
-
       try {
         if (!isFavorited.value) {
           const response = await axios.post('/favorites', {
@@ -241,6 +251,7 @@ export default {
       isFavorited,
       favoriteId,
       isLoggedIn,
+      isRestricted,
       escapeHTML,
       sendMessage,
       clearMessages,
@@ -274,9 +285,7 @@ header {
 }
 
 /* タイトル部分 */
-.header-title-container {
-  /* 必要に応じて余白やその他スタイルを追加 */
-}
+.header-title-container { }
 .header-title {
   margin: 0;
   white-space: nowrap;
